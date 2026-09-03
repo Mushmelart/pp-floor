@@ -1,0 +1,1502 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d1117">
+<title>PP Floor</title>
+<style>
+/* ==========================================================================
+   PP FLOOR — PrintPro press-side tablet
+   Target device: 11" Android, 1200 x 1920 portrait, Chrome, Add to Home Screen.
+   Design rules: nothing tappable under 64px. Body text never under 20px.
+   Dark ground (glare + ink). One thumb reaches the bottom nav.
+   ========================================================================== */
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c232c; --line:#2b3440;
+  --ink:#e9eef5; --dim:#93a1b3; --faint:#5d6b7d;
+  --accent:#4c9aff; --good:#3fb950; --warn:#e3a008; --bad:#f4564a;
+  --base:#8b5cf6; --white:#e9eef5; --black:#6e7681; --flash:#e3a008;
+  --tap:64px;
+  font-size:16px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg); color:var(--ink);
+  font:400 20px/1.4 -apple-system,"Segoe UI",Roboto,system-ui,sans-serif;
+  overscroll-behavior:none; user-select:none;
+  display:flex; flex-direction:column;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+input,textarea,select{
+  background:var(--panel2); border:2px solid var(--line); border-radius:10px;
+  padding:14px 16px; min-height:var(--tap); width:100%; user-select:text;
+}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+
+/* ---- top bar ---- */
+#bar{
+  display:flex; align-items:center; gap:12px; flex:0 0 auto;
+  padding:14px 18px; background:var(--panel); border-bottom:2px solid var(--line);
+}
+#bar .st{font-weight:700; font-size:24px; letter-spacing:.5px}
+#bar .op{color:var(--dim); font-size:19px}
+#bar .sp{flex:1}
+#clock{font-variant-numeric:tabular-nums; color:var(--dim); font-size:19px}
+.dot{width:14px;height:14px;border-radius:50%;background:var(--faint);flex:0 0 auto}
+.dot.ok{background:var(--good)} .dot.busy{background:var(--warn)} .dot.err{background:var(--bad)}
+#cfgbtn{background:none;border:none;padding:10px;font-size:24px;line-height:1}
+/* the job the tablet is on — entered once, carried everywhere */
+#jobChip{min-height:48px;padding:8px 18px;border-radius:999px;border:2px solid var(--accent);
+  background:rgba(76,154,255,.14);color:var(--accent);font-size:20px;font-weight:800;
+  letter-spacing:1px;font-variant-numeric:tabular-nums}
+#jobChip small{display:block;font-size:12px;font-weight:700;letter-spacing:1.5px;
+  color:var(--dim);line-height:1}
+
+/* ---- views ---- */
+main{flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:18px 18px 24px}
+.view{display:none} .view.on{display:block}
+h2{font-size:26px;margin:0 0 14px;font-weight:700}
+h3{font-size:21px;margin:22px 0 10px;color:var(--dim);font-weight:600;
+   text-transform:uppercase;letter-spacing:1px}
+.card{background:var(--panel); border:2px solid var(--line); border-radius:14px;
+      padding:16px; margin-bottom:14px}
+.row{display:flex; gap:12px} .row>*{flex:1}
+label{display:block;font-size:17px;color:var(--dim);margin:0 0 6px;font-weight:600}
+.field{margin-bottom:14px}
+.muted{color:var(--dim);font-size:18px}
+.tiny{font-size:16px;color:var(--faint)}
+
+/* ---- buttons ---- */
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  min-height:var(--tap); padding:16px 20px; border-radius:12px;
+  border:2px solid var(--line); background:var(--panel2); color:var(--ink);
+  font-size:21px; font-weight:600; width:100%; cursor:pointer;
+}
+.btn:active{transform:scale(.985)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#04101f}
+.btn.good{background:var(--good);border-color:var(--good);color:#052b0f}
+.btn.bad{background:var(--bad);border-color:var(--bad);color:#2a0705}
+.btn.ghost{background:transparent}
+.btn.lg{min-height:96px;font-size:26px}
+.btn[disabled]{opacity:.4}
+
+/* ---- chips ---- */
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{
+  min-height:var(--tap); padding:14px 20px; border-radius:999px;
+  border:2px solid var(--line); background:var(--panel2); color:var(--dim);
+  font-size:19px; font-weight:600; cursor:pointer;
+}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#04101f}
+.chip.on.warnc{background:var(--warn);border-color:var(--warn);color:#2a1d00}
+.chip.on.badc{background:var(--bad);border-color:var(--bad);color:#2a0705}
+
+/* ---- timers ---- */
+.timer{
+  display:flex;align-items:center;gap:16px;background:var(--panel2);
+  border:2px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px
+}
+.timer.run{border-color:var(--good);background:#12251a}
+.timer.over{border-color:var(--bad);background:#2a1210}
+.timer .nm{flex:1;font-size:22px;font-weight:700}
+.timer .tv{font-variant-numeric:tabular-nums;font-size:38px;font-weight:700;
+           letter-spacing:1px;min-width:150px;text-align:right}
+.timer .go{min-height:var(--tap);min-width:130px;border-radius:12px;border:2px solid var(--line);
+           background:var(--panel);font-size:20px;font-weight:700;color:var(--ink)}
+.timer.run .go{background:var(--good);border-color:var(--good);color:#052b0f}
+.pill{display:inline-block;padding:4px 12px;border-radius:999px;font-size:15px;
+      font-weight:700;letter-spacing:.5px}
+.pill.warn{background:var(--warn);color:#2a1d00}
+.pill.bad{background:var(--bad);color:#2a0705}
+
+/* ---- keypad ---- */
+#kp{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+#kp button{min-height:80px;font-size:32px;font-weight:700;border-radius:12px;
+           border:2px solid var(--line);background:var(--panel2);color:var(--ink)}
+#jobno{font-size:42px;font-weight:700;text-align:center;letter-spacing:4px;
+       font-variant-numeric:tabular-nums;min-height:86px}
+
+/* ---- rotation steps ---- */
+.loctabs{display:flex;gap:10px;overflow-x:auto;margin-bottom:14px}
+.loctabs .chip{white-space:nowrap}
+.step{display:flex;align-items:center;gap:14px;background:var(--panel);
+      border:2px solid var(--line);border-left-width:10px;border-radius:12px;
+      padding:14px 16px;margin-bottom:10px}
+.step .pos{font-size:34px;font-weight:800;min-width:46px;text-align:center;color:var(--dim)}
+.step .mid{flex:1;min-width:0}
+.step .nm{font-size:25px;font-weight:700;line-height:1.15}
+.step .sub{font-size:17px;color:var(--dim);margin-top:4px}
+.step.base{border-left-color:var(--base)}
+.step.white{border-left-color:var(--white)}
+.step.black{border-left-color:var(--black)}
+.step.spot{border-left-color:var(--accent)}
+.step .mv{display:flex;flex-direction:column;gap:6px}
+.step .mv button{width:56px;height:44px;border-radius:8px;border:2px solid var(--line);
+                 background:var(--panel2);color:var(--ink);font-size:18px}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.bdg{padding:4px 10px;border-radius:6px;font-size:15px;font-weight:800;letter-spacing:.5px}
+.bdg.f{background:var(--flash);color:#2a1d00}
+.bdg.m{background:#334155;color:#dbeafe}
+.bdg.r{background:transparent;border:2px solid var(--line);color:var(--faint)}
+.conf{font-size:16px;font-weight:700}
+.conf.high{color:var(--good)} .conf.medium{color:var(--warn)} .conf.low{color:var(--bad)}
+.warnbox{background:#2a2210;border:2px solid var(--warn);border-radius:12px;
+         padding:14px;margin-bottom:12px;font-size:18px}
+/* ---- screen room: multi-job tabs + one card per screen ---- */
+.jobtabs{display:flex;gap:10px;overflow-x:auto;margin-bottom:14px;padding-bottom:4px}
+.jobtabs button{min-height:var(--tap);padding:12px 22px;border-radius:12px;
+  border:2px solid var(--line);background:var(--panel2);color:var(--dim);
+  font-size:19px;font-weight:700;white-space:nowrap}
+.jobtabs button.on{background:var(--accent);border-color:var(--accent);color:#04101f}
+.jobtabs button.add{color:var(--accent);min-width:72px;font-size:26px}
+.scr{background:var(--panel);border:2px solid var(--line);border-radius:14px;
+     padding:14px 16px;margin-bottom:12px}
+.scr.re{border-color:var(--warn)}
+.scr .hd{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.scr .n{font-size:22px;font-weight:800;flex:1}
+.scr .n small{font-weight:600;color:var(--dim);font-size:17px;margin-left:8px}
+.scr .hd button{min-height:56px;padding:12px 18px;border-radius:10px;
+  border:2px solid var(--line);background:var(--panel2);color:var(--dim);
+  font-size:18px;font-weight:700}
+.scr .hd button.on{background:var(--warn);border-color:var(--warn);color:#2a1d00}
+.scr .hd button.del{width:60px;color:var(--faint);font-size:22px;padding:12px 0}
+.mesh{display:flex;gap:8px;flex-wrap:wrap}
+.mesh button{flex:1 0 auto;min-width:86px;min-height:var(--tap);border-radius:10px;
+  border:2px solid var(--line);background:var(--panel2);color:var(--dim);
+  font-size:20px;font-weight:700}
+.mesh button.on{background:var(--accent);border-color:var(--accent);color:#04101f}
+/* art-room release state */
+.relbar{border-radius:12px;padding:14px 16px;margin-bottom:12px;font-size:18px;
+        border:2px solid var(--line);line-height:1.4}
+.relbar b{font-size:20px;letter-spacing:.5px}
+.relbar.ok{border-color:var(--good);background:#12251a;color:#c9f2d4}
+.relbar.fixed{border-color:var(--warn);background:#2a2210;color:#f6e3b0}
+.relbar.none{border-color:var(--faint);background:var(--panel2);color:var(--dim)}
+/* the press log ↔ rotation link — one job, one row */
+.linkbar{border-radius:12px;padding:16px;margin-bottom:14px;border:2px solid var(--line);
+         background:var(--panel);display:flex;align-items:center;gap:14px}
+.linkbar.agreed{border-color:var(--good);background:#12251a}
+.linkbar.changed{border-color:var(--warn);background:#2a2210}
+.linkbar .t{flex:1;font-size:19px;line-height:1.35}
+.linkbar .t b{font-size:22px}
+.linkbar .x{width:56px;min-height:56px;border-radius:10px;border:2px solid var(--line);
+            background:var(--panel2);color:var(--dim);font-size:22px}
+
+/* ---- KPI ---- */
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.kpi{background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:18px}
+.kpi .v{font-size:44px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.kpi .l{font-size:17px;color:var(--dim);margin-top:8px;font-weight:600}
+.kpi .d{font-size:17px;margin-top:6px;font-weight:700}
+.kpi .d.up{color:var(--good)} .kpi .d.down{color:var(--bad)}
+.bar{height:16px;border-radius:8px;background:var(--panel2);overflow:hidden;margin-top:12px}
+.bar>i{display:block;height:100%;background:var(--accent)}
+
+/* ---- bottom nav ---- */
+#tabs{flex:0 0 auto;display:flex;background:var(--panel);border-top:2px solid var(--line);
+      padding-bottom:env(safe-area-inset-bottom)}
+#tabs button{flex:1;min-height:88px;background:none;border:none;color:var(--faint);
+             font-size:16px;font-weight:700;letter-spacing:.5px;display:flex;
+             flex-direction:column;align-items:center;justify-content:center;gap:5px}
+#tabs button .g{font-size:26px;line-height:1}
+#tabs button.on{color:var(--accent);box-shadow:inset 0 4px 0 var(--accent)}
+
+/* ---- modal ---- */
+#modal{position:fixed;inset:0;background:rgba(3,6,10,.86);display:none;
+       align-items:center;justify-content:center;padding:24px;z-index:50}
+#modal.on{display:flex}
+#modal .box{background:var(--panel);border:2px solid var(--line);border-radius:16px;
+            padding:22px;width:100%;max-width:820px;max-height:88vh;overflow-y:auto}
+#modal h3{margin-top:0;color:var(--ink);font-size:24px;text-transform:none;letter-spacing:0}
+/* once a rotation is on screen the keypad collapses out of the way —
+   the operator needs the steps above the fold, not the number pad */
+#lookup.mini label,#lookup.mini #kp,#lookup.mini #recent{display:none}
+#lookup.mini{display:flex;align-items:center;gap:14px;padding:12px 16px}
+#lookup.mini #jobno{font-size:30px;min-height:56px;letter-spacing:2px;
+  border:none;background:transparent;text-align:left;padding:0;flex:1}
+#relook{display:none;width:auto;padding:14px 22px;flex:0 0 auto}
+#lookup.mini #relook{display:flex}
+#toast{position:fixed;left:50%;transform:translateX(-50%);top:96px;z-index:60;
+       background:var(--panel2);border:2px solid var(--line);border-radius:12px;
+       padding:16px 26px;font-size:20px;font-weight:600;display:none}
+#toast.on{display:block}
+#toast.good{border-color:var(--good)} #toast.bad{border-color:var(--bad)}
+</style>
+</head>
+<body>
+
+<header id="bar">
+  <span class="st" id="stName">PRESS —</span>
+  <span class="op" id="opName">no operator</span>
+  <button id="jobChip" hidden></button>
+  <span class="sp"></span>
+  <span id="clock">--:--</span>
+  <span class="dot" id="sync" title="sync"></span>
+  <button id="cfgbtn" aria-label="settings">⚙</button>
+</header>
+
+<main>
+
+<!-- ===================== ROTATION ===================== -->
+<section class="view on" id="v-rot">
+  <h2>Print order</h2>
+
+  <div class="card" id="lookup">
+    <label>Graphic / order number</label>
+    <input id="jobno" inputmode="numeric" readonly value="">
+    <div id="kp">
+      <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+      <button data-k="del">⌫</button><button data-k="0">0</button>
+      <button data-k="go" class="goK" style="background:var(--accent);border-color:var(--accent);color:#04101f">GO</button>
+    </div>
+    <div id="recent" class="chips" style="margin-top:14px"></div>
+    <button class="btn" id="relook">Change</button>
+  </div>
+
+  <div id="rotOut"></div>
+</section>
+
+<!-- ===================== PRESS LOG ===================== -->
+<section class="view" id="v-press">
+  <h2>Press log</h2>
+
+  <div id="linkBanner"></div>
+
+  <div class="card">
+    <div class="row">
+      <div class="field"><label>Order #</label><input id="p_order" inputmode="numeric"></div>
+      <div class="field"><label>Colors / screens</label><input id="p_colors" inputmode="numeric"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Pieces</label><input id="p_pieces" inputmode="numeric"></div>
+      <div class="field"><label>Garment</label><input id="p_garment" placeholder="body / style"></div>
+    </div>
+  </div>
+
+  <h3>Timers</h3>
+  <div id="t_setup"></div>
+  <div id="t_run"></div>
+  <div id="t_wait"></div>
+  <div class="tiny" id="rateNote" style="margin:-4px 0 14px 4px"></div>
+
+  <h3>Activities</h3>
+  <div class="chips" id="c_act"></div>
+
+  <h3>Delays</h3>
+  <div class="chips" id="c_delay"></div>
+
+  <h3>Problems</h3>
+  <div class="chips" id="c_prob"></div>
+
+  <div class="field" style="margin-top:20px"><label>Notes (optional)</label>
+    <textarea id="p_notes" rows="2"></textarea></div>
+
+  <button class="btn primary lg" id="p_submit" style="margin-top:8px">Submit job</button>
+  <button class="btn ghost" id="p_clear" style="margin-top:12px">Clear form</button>
+</section>
+
+<!-- ===================== SCREEN ROOM ===================== -->
+<section class="view" id="v-dark">
+  <h2>Screen room</h2>
+
+  <div class="card">
+    <div class="row">
+      <div class="field"><label>Humidity % (today)</label><input id="d_hum" inputmode="numeric"></div>
+      <div class="field"><label>Mode</label>
+        <div class="chips">
+          <button class="chip on" data-mode="job">Job</button>
+          <button class="chip" data-mode="shift">Shift task</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="d_job">
+    <div class="jobtabs" id="d_tabs"></div>
+
+    <div class="card">
+      <div class="field"><label>Order #</label><input id="d_order" inputmode="numeric"></div>
+    </div>
+
+    <h3>Screens <span class="tiny" id="d_count"></span></h3>
+    <div id="d_screenlist"></div>
+    <button class="btn" id="scr_add">+ Add screen</button>
+
+    <h3>Timers</h3>
+    <div id="t_prep"></div>
+    <div id="t_finish"></div>
+  </div>
+
+  <div id="d_shift" style="display:none">
+    <div class="card">
+      <div class="row"><div class="field"><label>Coated</label><input id="s_coat" inputmode="numeric"></div>
+        <div class="field"><label>Reclaimed</label><input id="s_reclaim" inputmode="numeric"></div></div>
+      <div class="row"><div class="field"><label>Stretched</label><input id="s_stretch" inputmode="numeric"></div>
+        <div class="field"><label>Cleaned</label><input id="s_clean" inputmode="numeric"></div></div>
+    </div>
+    <h3>Timer</h3>
+    <div id="t_shift"></div>
+  </div>
+
+  <h3>Problems</h3>
+  <div class="chips" id="c_dprob"></div>
+
+  <div class="field" style="margin-top:20px"><label>Notes (optional)</label>
+    <textarea id="d_notes" rows="2"></textarea></div>
+
+  <button class="btn primary lg" id="d_submit">Submit</button>
+  <button class="btn ghost" id="d_clear" style="margin-top:12px">Clear form</button>
+</section>
+
+<!-- ===================== NUMBERS ===================== -->
+<section class="view" id="v-num">
+  <h2>Numbers</h2>
+  <h3>Me — today</h3>
+  <div class="kpis" id="k_me"></div>
+  <h3 id="k_pressHdr">This press vs target</h3>
+  <div id="k_press"></div>
+  <button class="btn ghost" id="k_refresh" style="margin-top:20px">Refresh</button>
+  <p class="tiny" id="k_note" style="margin-top:14px"></p>
+</section>
+
+</main>
+
+<nav id="tabs">
+  <button class="on" data-v="rot"><span class="g">▦</span>ROTATION</button>
+  <button data-v="press"><span class="g">⏱</span>PRESS LOG</button>
+  <button data-v="dark"><span class="g">◫</span>SCREEN ROOM</button>
+  <button data-v="num"><span class="g">▲</span>NUMBERS</button>
+</nav>
+
+<div id="modal"><div class="box" id="modalBox"></div></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ==========================================================================
+   ONE KNOB EACH — every threshold on the floor tablet lives here.
+   ========================================================================== */
+const CFG = {
+  PORT_BASE: "",          // same origin, used only when served by the Flask app
+
+  /* BOTH OF THESE STAY EMPTY IN THE REPO.
+     GitHub Pages only serves from a public repo on a free plan, so anything
+     committed here is world-readable. The endpoint URL and the shared token
+     are entered once per tablet in ⚙ and live in that tablet's browser
+     storage — so the published source carries nothing worth having. */
+  SHEET_URL: "",
+  SHEET_TOKEN: "",
+
+  /* WHERE ROTATIONS COME FROM.
+     "auto"  — https page (GitHub Pages) reads the sheet; http page (served by
+               the Flask app on the LAN) asks the pipeline directly.
+     "sheet" / "port" force one.
+
+     An https page cannot fetch http://<shop-ip>:8002 — browsers block mixed
+     active content and no CORS header changes that. So on GitHub Pages the
+     pipeline PUSHES each art-room release into the sheet and the tablet reads
+     it back over https. Better than pulling anyway: the tablet works on any
+     network, it keeps working when the office machine is asleep, and the floor
+     only ever sees rotations the art room actually released. */
+  ROTATION_SOURCE: "auto"
+};
+function rotationSource(){
+  if(CFG.ROTATION_SOURCE!=="auto") return CFG.ROTATION_SOURCE;
+  return location.protocol==="https:" ? "sheet" : "port";
+}
+const K = {
+  SETUP_TARGET_MIN_PER_SCREEN: 8,    // shop target, drives the press-vs-target bar
+  SETUP_CEILING_MIN_PER_SCREEN: 25,  // above this the setup timer ran away
+  RUN_CEILING_MIN: 600,              // 10h — a run timer past this ran away
+  WAIT_CEILING_MIN: 480,             // 8h  — a wait past a shift ran away
+  PREP_CEILING_MIN: 240,
+  CHECKIN_AFTER_MIN: 45,             // still-working? prompt after this much running
+  CHECKIN_REPEAT_MIN: 30,            // and again this often
+  AUTOSAVE_MS: 3000,
+  RECENT_JOBS: 6
+};
+const CHIPS = {
+  act:   ["Setup","Print","Sample","Reclaim change","Ink mix","Pallet change","Cleanup","Training"],
+  delay: ["Waiting on art","Waiting on screens","Waiting on garments","Waiting on approval",
+          "Press down","Dryer down","No operator","Other"],
+  prob:  ["Registration","Ink coverage","Base too heavy","Flash / cure","Screen breakdown",
+          "Wrong garment","Wrong ink","Misprint","Other"],
+  mesh:  ["110","155","200","230","305","40","86"],
+  dprob: ["Emulsion","Exposure","Washout","Pinholes","Tension","Reclaim","Other"]
+};
+/* The HOW-TO tab (the EN+ES technique sheets) is out for now — 2026-09-03.
+   The Flask route /floor/procedures/<name> is still there, so putting the
+   tab back is a nav button, a <section>, and buildProcs(). */
+
+/* ==========================================================================
+   DEMO MODE — for showing the tablet to the production manager before the
+   pipeline is reachable. Turned on by ?demo=1 or by a window.PP_DEMO flag
+   set ahead of this script. It stubs the two network edges (the PORT app and
+   the Google Sheet) with canned jobs; every other line of this file is the
+   real one, so what he sees is what gets installed.
+   ========================================================================== */
+const DEMO = /[?&]demo=1/.test(location.search) || window.PP_DEMO === true;
+if (DEMO) {
+  const rot = (a) => a.map(x => ({ink:x[0], plate:x[1], mesh:x[2], rule:x[3],
+                                  flash:!!x[4], mash:!!x[5], note:x[6]||undefined}));
+  const JOBS = {
+    "754205": {ok:true, graphic:"754205", locations:[
+      {label:"Front Center", size_in:11.0, source:"754205_01_31_SEP_01_placed.ai (VectorSEP Output — measured)",
+       approved:{approved_by:"Sean (art)", from:"predicted", ts:"today 9:14 AM",
+         rotation:rot([["Underbase","Underbase",155,"R1",1,0,"base first (R1) — no MASH: base ≥ 50% (R3)"],
+                       ["CG 8","Wolf Grey (Cool Grey 8C)",230,"R5"],
+                       ["7714 C","Oceanic Teal (7714 C)",230,"R5"],
+                       ["WHT","WHT",155,"R7",0,0,"white last — highlight (R7)"]])},
+       result:{job:{body:"Flint Black",fabric:"Franklin Jersey",method:"vintage",base_strength:100},
+         flashes:1, signals_used:true, warnings:[],
+         confidence:{R1:"high",R5:"medium (dark body: smaller→larger by area)",R7:"high (dark body → white last ~78%)"},
+         rotation:rot([["Underbase","Underbase",155,"R1",1,0,"base first (R1)"],
+                       ["CG 8","Wolf Grey (Cool Grey 8C)",230,"R5"],
+                       ["7714 C","Oceanic Teal (7714 C)",230,"R5"],
+                       ["WHT","WHT",155,"R7",0,0,"white last — highlight (R7)"]])}},
+      {label:"Left Chest", size_in:3.5, source:"the proof only", approved:null,
+       result:{job:{body:"Flint Black",fabric:"Franklin Jersey",method:"vintage",base_strength:100},
+         flashes:1, signals_used:false, warnings:["base inferred from the dark body — the proof prints no underlay callout"],
+         confidence:{R1:"high",R6:"medium"},
+         rotation:rot([["Underbase","Underbase",155,"R1",1,1],["BLK","BLK",230,"R6"]])}}]},
+    "392841": {ok:true, graphic:"392841", locations:[
+      {label:"Center Chest", size_in:11.0, source:"392841_01_placed.ai (VectorSEP Output — measured)",
+       approved:{approved_by:"Sean (art)", from:"corrected", ts:"today 8:02 AM",
+         note:"Art ran: 1. BLK  |  2. Underbase  |  3. Red 187  |  4. AB White — black is the keyline, and black-last blew the 2-flash cap",
+         rotation:rot([["BLK","BLK",230,"R1a",0,0,"dark first — keyline (R1a)"],
+                       ["Underbase","Underbase",155,"R1",1,1],
+                       ["187 C","Red (187 C)",200,"R5"],
+                       ["WHT","AB White",155,"R7"]])},
+       result:{job:{body:"Slate Grey",fabric:"Singleback Jersey",method:"HyperPrint 917",base_strength:100},
+         flashes:1, signals_used:true, warnings:[],
+         confidence:{R1:"high",R4:"high (HyperPrint 917 → solid AB)",R6:"medium"},
+         rotation:rot([["Underbase","Underbase",155,"R1",1,1],
+                       ["187 C","Red (187 C)",200,"R5"],
+                       ["289 C","Navy (289 C)",200,"R5"],
+                       ["BLK","BLK",230,"R6",0,0,"black last (R6)"]])}}]},
+    "680203": {ok:true, graphic:"680203", locations:[
+      {label:"(single location)", size_in:9.0, source:"the proof only", approved:null,
+       result:{job:{body:"White Wash",fabric:"Franklin Jersey",method:"Vintage Print",base_strength:0},
+         flashes:0, signals_used:false,
+         warnings:["No-UB blank (R10) — the spec'd base was struck"],
+         confidence:{R5:"low (light body: lightest → darkest, art order kept)",R6:"high (light + no base → black last ~83%)",R10:"high"},
+         rotation:rot([["7455 C","Sky (7455 C)",200,"R5"],
+                       ["1795 C","Red (1795 C)",200,"R5"],
+                       ["BLK","BLK",305,"R6",0,0,"black last — keyline over the bare shirt (R6)"]])}}]}
+  };
+  const realFetch = window.fetch.bind(window);
+  window.fetch = (url, opt) => {
+    const u = String(url);
+    const json = o => Promise.resolve({json: () => Promise.resolve(o), ok: true});
+    if (u.includes("/port/predict")) {
+      const g = (u.match(/graphic=([^&]+)/) || [])[1] || "";
+      return new Promise(r => setTimeout(() =>
+        r(json(JOBS[decodeURIComponent(g)] ||
+               {ok:false, message:"No proof on file for that number. Try 754205, 392841 or 680203."})), 350));
+    }
+    if (u.includes("/port/feedback") || u.includes("/port/approve")) return json({ok:true});
+    if (u.includes("fn=kpi")) return json({ok:true, myJobs:4, myPieces:1180,
+      mySetupMin:142, myRate:7.4, myRateVsAvg:-1.1, pressRate:8.6, excluded:1});
+    if (u.includes("script.google.com")) return json({ok:true});
+    return realFetch(url, opt);
+  };
+}
+
+/* ========================= tiny helpers ========================= */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const el = (t,c,x)=>{const n=document.createElement(t); if(c)n.className=c;
+                     if(x!=null)n.textContent=x; return n;};
+const now = () => Date.now();
+const pad = n => String(n).padStart(2,"0");
+function hms(ms){const s=Math.max(0,Math.floor(ms/1000));
+  return pad(Math.floor(s/3600))+":"+pad(Math.floor(s/60)%60)+":"+pad(s%60);}
+function mins(ms){return ms/60000;}
+function toast(msg,kind){const t=$("#toast"); t.textContent=msg;
+  t.className="on "+(kind||""); clearTimeout(toast._t);
+  toast._t=setTimeout(()=>t.className="",3200);}
+function setSync(c){$("#sync").className="dot "+(c||"");}
+
+/* ========================= station config ========================= */
+const S = {
+  station: localStorage.getItem("pp_station") || "",
+  operator: localStorage.getItem("pp_operator") || "",
+  sheetUrl: localStorage.getItem("pp_sheet_url") || CFG.SHEET_URL,
+  token: localStorage.getItem("pp_sheet_token") || CFG.SHEET_TOKEN,
+  // which station this tablet is bolted to — decides which tabs it shows
+  kind: localStorage.getItem("pp_kind") || "press"   // press | screen | both
+};
+/* A press tablet has no business showing a screen-room log, and the dark room
+   has no business showing a press rotation. Setting the kind per tablet also
+   settles the order-number question: the two stations run the same job days
+   apart, so they never share one. */
+const TABS_FOR = {press:["rot","press","num"], screen:["dark","num"],
+                  both:["rot","press","dark","num"]};
+function applyKind(){
+  const allow=TABS_FOR[S.kind]||TABS_FOR.both;
+  $$("#tabs button").forEach(b=>b.hidden = !allow.includes(b.dataset.v));
+  const cur=$$("#tabs button").find(b=>b.classList.contains("on"));
+  if(!cur || cur.hidden) $('#tabs button[data-v="'+allow[0]+'"]').click();
+}
+function paintBar(){
+  $("#stName").textContent = S.station ? S.station.toUpperCase() : "PRESS —";
+  $("#opName").textContent = S.operator || "no operator";
+  $("#k_pressHdr").textContent = (S.station||"This press") + " vs target";
+}
+function openCfg(){
+  const kindBtn=(v,t)=>`<button class="chip${S.kind===v?" on":""}" data-kind="${v}">${t}</button>`;
+  modal(`<h3>This tablet</h3>
+    <div class="field"><label>Where is it</label>
+      <div class="chips" id="cf_kind">
+        ${kindBtn("press","At a press")}${kindBtn("screen","Screen room")}${kindBtn("both","Both")}
+      </div></div>
+    <div class="field"><label>Station / press name</label>
+      <input id="cf_st" value="${esc(S.station)}" placeholder="Press 3"></div>
+    <div class="field"><label>Operator</label>
+      <input id="cf_op" value="${esc(S.operator)}" placeholder="name"></div>
+    <div class="field" ${DEMO?'hidden':''}><label>Backend — paste the setup line</label>
+      <textarea id="cf_url" rows="3" placeholder="https://script.google.com/…/exec | pp-floor-…">${esc(S.sheetUrl && S.token ? S.sheetUrl+" | "+S.token : S.sheetUrl)}</textarea>
+      <p class="tiny">The /exec URL, then a | , then the token. One paste.</p></div>
+    ${DEMO?'<p class="tiny">Demo build — nothing here leaves the tablet.</p>':''}
+    <button class="btn primary lg" id="cf_save">Save</button>
+    <button class="btn ghost" id="cf_x" style="margin-top:12px">Cancel</button>`);
+  let kind=S.kind;
+  $$("#cf_kind .chip").forEach(b=>b.onclick=()=>{
+    kind=b.dataset.kind;
+    $$("#cf_kind .chip").forEach(x=>x.classList.toggle("on",x===b));
+  });
+  $("#cf_save").onclick=()=>{
+    S.kind=kind;
+    S.station=$("#cf_st").value.trim(); S.operator=$("#cf_op").value.trim();
+    const u=$("#cf_url");
+    if(u){
+      // one paste: "<https://…/exec> | <token>". The token half is optional
+      // so an existing tablet can be repointed at a new deployment alone.
+      const parts=u.value.split("|").map(x=>x.trim()).filter(Boolean);
+      if(parts[0]) S.sheetUrl=parts[0];
+      if(parts[1]) S.token=parts[1];
+    }
+    localStorage.setItem("pp_sheet_token",S.token||"");
+    localStorage.setItem("pp_kind",S.kind);
+    localStorage.setItem("pp_station",S.station);
+    localStorage.setItem("pp_operator",S.operator);
+    localStorage.setItem("pp_sheet_url",S.sheetUrl);
+    paintBar(); applyKind(); closeModal(); toast("Saved","good");
+  };
+  $("#cf_x").onclick=closeModal;
+}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,
+  c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+/* ========================= modal ========================= */
+function modal(html){$("#modalBox").innerHTML=html; $("#modal").classList.add("on");}
+function closeModal(){$("#modal").classList.remove("on"); $("#modalBox").innerHTML="";}
+
+/* ========================= tabs ========================= */
+$$("#tabs button").forEach(b=>b.onclick=()=>{
+  $$("#tabs button").forEach(x=>x.classList.toggle("on",x===b));
+  $$(".view").forEach(v=>v.classList.toggle("on", v.id==="v-"+b.dataset.v));
+  document.querySelector("main").scrollTop=0;
+  if(b.dataset.v==="num") loadKpis();
+});
+
+/* ==========================================================================
+   TIMERS
+   Absolute timestamps only. A setInterval does NOT fire while an Android
+   tablet sleeps, so elapsed is always (accum + (now - startedAt)) and the
+   visibilitychange handler repaints on wake. Three guards on runaways:
+   a check-in prompt, a pause-and-hold, and a hard ceiling that FLAGS
+   (never clips) the value.
+   ========================================================================== */
+function mkTimer(key,name,ceilingFn){
+  return {key,name,ceilingFn, accum:0, startedAt:0, running:false,
+          flagged:false, lastCheckin:0};
+}
+function tElapsed(t){return t.accum + (t.running ? now()-t.startedAt : 0);}
+function tToggle(t){
+  if(t.running){ t.accum=tElapsed(t); t.running=false; t.startedAt=0; }
+  else { t.startedAt=now(); t.running=true; t.lastCheckin=now(); }
+  save(); paintTimers();
+}
+function tReset(t){t.accum=0;t.startedAt=0;t.running=false;t.flagged=false;}
+function tCeiling(t){return t.ceilingFn ? t.ceilingFn() : Infinity;}
+
+function timerRow(host,t){
+  const over = mins(tElapsed(t)) > tCeiling(t);
+  if(over) t.flagged = true;
+  const d = el("div","timer"+(t.running?" run":"")+(t.flagged?" over":""));
+  const nm = el("div","nm"); nm.appendChild(document.createTextNode(t.name));
+  if(t.flagged){ const p=el("span","pill bad","OVER"); p.style.marginLeft="10px"; nm.appendChild(p); }
+  d.appendChild(nm);
+  d.appendChild(el("div","tv",hms(tElapsed(t))));
+  const b = el("button","go", t.running ? "STOP" : (tElapsed(t)?"RESUME":"START"));
+  b.onclick = ()=>tToggle(t);
+  d.appendChild(b);
+  host.innerHTML=""; host.appendChild(d);
+}
+
+/* the four press-side + screen-room timers */
+const PT = {
+  setup: mkTimer("setup","Setup", ()=>{
+    const c = parseInt($("#p_colors").value||"0",10);
+    return (c>0? c : 1) * K.SETUP_CEILING_MIN_PER_SCREEN;
+  }),
+  run:   mkTimer("run","Run",  ()=>K.RUN_CEILING_MIN),
+  wait:  mkTimer("wait","Waiting (press idle)", ()=>K.WAIT_CEILING_MIN)
+};
+/* prep/finish are re-pointed at the active screen-room job's own clocks
+   by syncJobTimers(); shift is the one standalone screen-room timer. */
+const DT = {
+  prep:   mkTimer("prep","Prep",   ()=>K.PREP_CEILING_MIN),
+  finish: mkTimer("finish","Finish",()=>K.PREP_CEILING_MIN),
+  shift:  mkTimer("shift","Shift task",()=>K.PREP_CEILING_MIN)
+};
+function paintTimers(){
+  timerRow($("#t_setup"),PT.setup);
+  timerRow($("#t_run"),PT.run);
+  timerRow($("#t_wait"),PT.wait);
+  timerRow($("#t_prep"),DT.prep);
+  timerRow($("#t_finish"),DT.finish);
+  timerRow($("#t_shift"),DT.shift);
+  paintRate();
+}
+function paintRate(){
+  const c=parseInt($("#p_colors").value||"0",10);
+  const m=mins(tElapsed(PT.setup));
+  if(!c||!m){$("#rateNote").textContent="";return;}
+  const r=m/c;
+  $("#rateNote").textContent =
+    "Setup " + r.toFixed(1) + " min/screen · target " + K.SETUP_TARGET_MIN_PER_SCREEN +
+    " · flag over " + K.SETUP_CEILING_MIN_PER_SCREEN;
+}
+
+/* --- check-in: a self-reported timer's failure mode is being left running --- */
+function checkin(){
+  // every job's clocks, not just the visible tab's — a parked job is exactly
+  // where a timer gets left running
+  const all = [PT.setup,PT.run,PT.wait,DT.shift]
+    .concat(DJOBS.flatMap(j=>[j.prep,j.finish]));
+  const running = all.filter(t=>t.running);
+  for(const t of running){
+    const since = mins(now()-(t.lastCheckin||t.startedAt));
+    if(since >= (t.lastCheckin===t.startedAt ? K.CHECKIN_AFTER_MIN : K.CHECKIN_REPEAT_MIN)){
+      t.lastCheckin = now();
+      modal(`<h3>Still on ${esc(t.name)}?</h3>
+        <p class="muted">It has been running ${hms(tElapsed(t))}.</p>
+        <button class="btn good lg" id="ci_yes">Yes — keep running</button>
+        <button class="btn bad lg" id="ci_no" style="margin-top:12px">No — stop it and flag</button>
+        <button class="btn ghost" id="ci_hold" style="margin-top:12px">Pause and hold</button>`);
+      $("#ci_yes").onclick=()=>{closeModal();};
+      $("#ci_no").onclick=()=>{t.accum=tElapsed(t);t.running=false;t.startedAt=0;
+                               t.flagged=true;save();paintTimers();closeModal();
+                               toast("Stopped and flagged","bad");};
+      $("#ci_hold").onclick=()=>{t.accum=tElapsed(t);t.running=false;t.startedAt=0;
+                                 save();paintTimers();closeModal();toast("Held");};
+      return;
+    }
+  }
+}
+
+/* ========================= chips ========================= */
+const picked = {act:new Set(),delay:new Set(),prob:new Set(),mesh:new Set(),dprob:new Set()};
+const otherText = {delay:"",prob:"",dprob:""};
+function buildChips(hostSel,group,kind){
+  const host=$(hostSel); host.innerHTML="";
+  CHIPS[group].forEach(label=>{
+    const b=el("button","chip"+(kind?" "+kind:""),label);
+    if(picked[group].has(label)) b.classList.add("on");
+    b.onclick=()=>{
+      if(picked[group].has(label)){picked[group].delete(label); b.classList.remove("on");}
+      else{
+        picked[group].add(label); b.classList.add("on");
+        // "Other" requires a short write-in — that write-in feeds the periodic
+        // review that graduates recurring answers into their own chip.
+        if(label==="Other") askOther(group);
+      }
+      save();
+    };
+    host.appendChild(b);
+  });
+}
+function askOther(group){
+  modal(`<h3>What was it?</h3>
+    <p class="muted">A few words. These get reviewed and the common ones become their own button.</p>
+    <div class="field"><input id="ot_v" value="${esc(otherText[group]||"")}" placeholder="short description"></div>
+    <button class="btn primary lg" id="ot_ok">Save</button>`);
+  $("#ot_v").focus();
+  $("#ot_ok").onclick=()=>{
+    const v=$("#ot_v").value.trim();
+    if(!v){toast("Needs a few words","bad");return;}
+    otherText[group]=v; save(); closeModal();
+  };
+}
+
+/* ========================= autosave ========================= */
+const SAVE_KEY="pp_floor_state_v1";
+function save(){
+  try{
+    const t=o=>({accum:o.accum,startedAt:o.startedAt,running:o.running,
+                 flagged:o.flagged,lastCheckin:o.lastCheckin});
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      v:1, saved:now(),
+      f:{order:$("#p_order").value,colors:$("#p_colors").value,pieces:$("#p_pieces").value,
+         garment:$("#p_garment").value,notes:$("#p_notes").value,
+         hum:$("#d_hum").value,
+         coat:$("#s_coat").value,reclaim:$("#s_reclaim").value,
+         stretch:$("#s_stretch").value,clean:$("#s_clean").value,dnotes:$("#d_notes").value},
+      dmode, djIdx,
+      DJOBS: DJOBS.map(j=>({id:j.id,order:j.order,screens:j.screens,
+                            prep:t(j.prep),finish:t(j.finish)})),
+      picked:Object.fromEntries(Object.entries(picked).map(([k,v])=>[k,[...v]])),
+      otherText,
+      PT:{setup:t(PT.setup),run:t(PT.run),wait:t(PT.wait)},
+      DT:{prep:t(DT.prep),finish:t(DT.finish),shift:t(DT.shift)},
+      recent, PORTLINK
+    }));
+  }catch(e){}
+}
+function restore(){
+  let d; try{d=JSON.parse(localStorage.getItem(SAVE_KEY)||"null");}catch(e){}
+  if(!d) return;
+  const f=d.f||{};
+  const set=(id,v)=>{const n=$(id); if(n&&v!=null)n.value=v;};
+  set("#p_order",f.order);set("#p_colors",f.colors);set("#p_pieces",f.pieces);
+  set("#p_garment",f.garment);set("#p_notes",f.notes);
+  set("#d_hum",f.hum);
+  set("#s_coat",f.coat);set("#s_reclaim",f.reclaim);set("#s_stretch",f.stretch);
+  set("#s_clean",f.clean);set("#d_notes",f.dnotes);
+  dmode = d.dmode||"job"; djIdx = d.djIdx||0;
+  if(d.picked) for(const k in picked) picked[k]=new Set(d.picked[k]||[]);
+  if(d.otherText) Object.assign(otherText,d.otherText);
+  const ld=(o,s)=>{if(!s)return; o.accum=s.accum||0;o.startedAt=s.startedAt||0;
+                   o.running=!!s.running;o.flagged=!!s.flagged;
+                   o.lastCheckin=s.lastCheckin||0;};
+  if(d.PT){ld(PT.setup,d.PT.setup);ld(PT.run,d.PT.run);ld(PT.wait,d.PT.wait);}
+  if(d.DT){ld(DT.shift,d.DT.shift);}
+  // saved jobs come back as plain data — rehydrate real timer objects
+  if(Array.isArray(d.DJOBS) && d.DJOBS.length){
+    DJOBS = d.DJOBS.map(s=>{
+      const j=newJob();
+      j.id=s.id||j.id; j.order=s.order||"";
+      j.screens=(Array.isArray(s.screens)&&s.screens.length)?s.screens
+                : [{mesh:null,reshoot:false}];
+      ld(j.prep,s.prep); ld(j.finish,s.finish);
+      return j;
+    });
+  }
+  recent = d.recent||[];
+  PORTLINK = d.PORTLINK||null;
+}
+
+/* ==========================================================================
+   ROTATION — talks to the Flask app's /port/predict, same origin.
+   ========================================================================== */
+/* ==========================================================================
+   THE JOB NUMBER — keyed once on the PRESS SIDE, carried across Rotation
+   and Press Log only.
+
+   Deliberately NOT shared with the screen room. The screen room preps a job
+   days before the press runs it — its tabs are future press jobs, and its
+   current job is almost never the one on the press right now. Pushing a
+   number between the two stations would fill the wrong field with a stale
+   order, which is worse than keying it twice. Rotation and Press Log are the
+   same job, same person, same minute, so propagation there is safe.
+
+   Fills EMPTY fields only — anything typed by hand wins.
+   ========================================================================== */
+let JOBNO = "";
+function setJobNo(g, opts){
+  g = String(g||"").trim(); if(!g) return;
+  JOBNO = g;
+  const n=$("#p_order"); if(n && !n.value.trim()) n.value=g;
+  paintJobChip(); save();
+  if(!(opts&&opts.silent)) paintRate();
+}
+function paintJobChip(){
+  const c=$("#jobChip");
+  if(!JOBNO){ c.hidden=true; return; }
+  c.hidden=false;
+  c.innerHTML='<small>JOB</small>'+esc(JOBNO);
+  c.onclick=()=>{
+    $('#tabs button[data-v="rot"]').click();
+    if(!ROT || ROT.graphic!==JOBNO){
+      $("#lookup").classList.remove("mini");
+      $("#jobno").value=JOBNO; predict(JOBNO);
+    }
+  };
+}
+
+let recent = [];
+let ROT = null;      // {graphic, locations:[...], activeIdx}
+let ORDERED = null;  // operator's corrected order when they override
+
+/* --------------------------------------------------------------------------
+   PORTLINK — the join between the rotation and the press log.
+   One job on the press = ONE row in the sheet. The rotation the operator was
+   shown, whether they ran it, and the setup minutes it took all have to land
+   on that same row, or you can never answer "does the predicted rotation cost
+   more or less setup time than the one the floor picks?"
+   Set when a rotation loads, stamped when they agree/override, and shipped
+   with the press-log submit.
+   -------------------------------------------------------------------------- */
+let PORTLINK = null;   // {graphic, location, colors, flashes, garment, method,
+                       //  decision:"agree"|"override"|null, reason, ran}
+function paintLink(){
+  const h=$("#linkBanner"); h.innerHTML="";
+  if(!PORTLINK){
+    const d=el("div","linkbar");
+    d.innerHTML='<div class="t muted">No rotation loaded. '+
+      'Look the job up on ROTATION first and this log fills itself in.</div>';
+    const b=el("button","btn", JOBNO ? "Look up "+JOBNO : "Rotation");
+    b.style.flex="0 0 auto"; b.style.width="auto";
+    b.onclick=()=>{
+      $('#tabs button[data-v="rot"]').click();
+      if(JOBNO){ $("#lookup").classList.remove("mini");
+                 $("#jobno").value=JOBNO; predict(JOBNO); }
+    };
+    d.appendChild(b); h.appendChild(d);
+    return;
+  }
+  const st = PORTLINK.decision;
+  const d=el("div","linkbar"+(st==="agree"?" agreed":st==="override"?" changed":""));
+  const t=el("div","t");
+  t.innerHTML='<b>'+esc(PORTLINK.graphic)+'</b>'+
+    (PORTLINK.location?' · '+esc(PORTLINK.location):'')+
+    ' — '+PORTLINK.colors+' screens · '+PORTLINK.flashes+' flash'+
+    (PORTLINK.flashes===1?'':'es')+
+    (PORTLINK.approvedBy?' · released by '+esc(PORTLINK.approvedBy):' · not released')+
+    '<br><span class="tiny">'+
+    (st==="agree" ? '✓ ran the predicted order'
+     : st==="override" ? '✎ changed — '+esc(PORTLINK.reason||"")
+     : 'not answered yet — tap ROTATION and say what you ran')+'</span>';
+  d.appendChild(t);
+  const x=el("button","x","✕"); x.title="unlink";
+  x.onclick=()=>{PORTLINK=null;save();paintLink();};
+  d.appendChild(x); h.appendChild(d);
+}
+
+$("#kp").onclick = e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  const k=b.dataset.k, i=$("#jobno");
+  if(k==="del") i.value=i.value.slice(0,-1);
+  else if(k==="go") predict(i.value.trim());
+  else if(i.value.length<10) i.value+=k;
+};
+function paintRecent(){
+  const h=$("#recent"); h.innerHTML="";
+  recent.slice(0,K.RECENT_JOBS).forEach(g=>{
+    const b=el("button","chip",g); b.onclick=()=>{$("#jobno").value=g;predict(g);};
+    h.appendChild(b);
+  });
+}
+async function predict(g){
+  if(!g){toast("Enter a number","bad");return;}
+  setSync("busy"); $("#rotOut").innerHTML='<div class="card muted">Looking up '+esc(g)+'…</div>';
+  try{
+    const viaSheet = rotationSource()==="sheet";
+    const url = viaSheet
+      ? (S.sheetUrl||CFG.SHEET_URL)+"?fn=rotation&graphic="+encodeURIComponent(g)
+      : CFG.PORT_BASE+"/port/predict?graphic="+encodeURIComponent(g);
+    if(viaSheet && !(S.sheetUrl||CFG.SHEET_URL)){
+      setSync("err");
+      $("#rotOut").innerHTML='<div class="warnbox">This tablet has no backend set. Tap ⚙.</div>';
+      return;
+    }
+    const r = await fetch(url,{cache:"no-store"});
+    const d = await r.json();
+    if(!d.ok){ setSync("err");
+      $("#rotOut").innerHTML='<div class="warnbox">'+esc(d.message||"No rotation for that number.")+'</div>';
+      return; }
+    setSync("ok");
+    ROT = {graphic:d.graphic, locations:d.locations||[], activeIdx:0};
+    ORDERED = null;
+    recent = [g].concat(recent.filter(x=>x!==g)).slice(0,K.RECENT_JOBS);
+    $("#lookup").classList.add("mini");
+    setLink(); setJobNo(d.graphic);
+    save(); paintRecent(); paintRotation();
+  }catch(e){
+    setSync("err");
+    $("#rotOut").innerHTML='<div class="warnbox">'+
+      (rotationSource()==="sheet"
+        ? "Can't reach the release list. Check this tablet's connection."
+        : "Can't reach the pipeline. Check shop wifi, then the app on the office machine.")+
+      '<br><span class="tiny">'+esc(e.message)+'</span></div>';
+  }
+}
+function activeLoc(){return ROT && ROT.locations[ROT.activeIdx];}
+/* The released rotation wins over the raw prediction. When the art room
+   approves in the dashboard it POSTs /port/approve, and /port/predict hands
+   that back on the location as `approved`. The floor should be looking at
+   what art signed off on, not at what the rules guessed. */
+function stepsOf(loc){
+  if(loc && loc.approved && (loc.approved.rotation||[]).length)
+    return loc.approved.rotation;
+  return (loc && loc.result && loc.result.rotation) || [];
+}
+function approvalOf(loc){return loc && loc.approved ? loc.approved : null;}
+/* The rotation is the source of truth for the fields the press log used to
+   ask the operator to key in by hand: the order number, how many screens,
+   and the garment. Every step in a rotation IS a screen, underbase included,
+   so colors = rotation.length — which is also the divisor for min/screen. */
+function setLink(){
+  const loc=activeLoc(); if(!loc||!loc.result) return;
+  const R=loc.result, J=R.job||{};
+  const steps=stepsOf(loc);
+  const ap=approvalOf(loc);
+  const keep = PORTLINK && PORTLINK.graphic===ROT.graphic
+               && PORTLINK.location===(loc.label||"");
+  PORTLINK={
+    graphic:ROT.graphic, location:loc.label||"",
+    colors:steps.length, flashes:R.flashes||0,
+    garment:[J.body,J.fabric].filter(Boolean).join(" / "),
+    method:J.method||"", baseStrength:J.base_strength,
+    predicted:steps.map((s,i)=>(i+1)+". "+(s.plate||s.ink)).join("  |  "),
+    approvedBy: ap ? (ap.approved_by||"art")+(ap.from==="corrected"?" (corrected)":"") : "",
+    decision: keep?PORTLINK.decision:null,
+    reason: keep?PORTLINK.reason:"", ran: keep?PORTLINK.ran:""
+  };
+  // prefill, never overwrite something the operator typed themselves
+  const set=(id,v)=>{const n=$(id); if(n && !n.value && v) n.value=v;};
+  set("#p_order",PORTLINK.graphic);
+  set("#p_colors",String(PORTLINK.colors));
+  set("#p_garment",PORTLINK.garment);
+  paintLink(); paintRate();
+}
+function roleOf(s){
+  const n=String(s.plate||s.ink||"").toLowerCase();
+  if(n.includes("underbase")||n==="base") return "base";
+  if(n.includes("wht")||n.includes("white")) return "white";
+  if(n.includes("blk")||n.includes("black")) return "black";
+  return "spot";
+}
+function paintRotation(){
+  const out=$("#rotOut"); out.innerHTML="";
+  if(!ROT) return;
+  const good = ROT.locations.filter(l=>l.result);
+  if(!good.length){ out.innerHTML='<div class="warnbox">No readable rotation on this proof.</div>'; return; }
+
+  if(ROT.locations.length>1){
+    const tabs=el("div","loctabs");
+    ROT.locations.forEach((l,i)=>{
+      const b=el("button","chip"+(i===ROT.activeIdx?" on":""), l.label||("Location "+(i+1)));
+      b.onclick=()=>{ROT.activeIdx=i;ORDERED=null;setLink();paintRotation();};
+      tabs.appendChild(b);
+    });
+    out.appendChild(tabs);
+  }
+  const loc=activeLoc();
+  if(!loc || !loc.result){ out.innerHTML+='<div class="warnbox">'+esc(loc&&loc.error||"Nothing for this location.")+'</div>'; return; }
+  const R=loc.result, J=R.job||{};
+
+  // job header
+  const hd=el("div","card");
+  hd.innerHTML =
+    '<div style="font-size:30px;font-weight:800">'+esc(ROT.graphic)+'</div>'+
+    '<div class="muted" style="margin-top:6px">'+esc(J.body||"?")+' · '+esc(J.fabric||"?")+
+    ' · '+esc(J.method||"?")+'</div>'+
+    '<div class="muted" style="margin-top:4px">Base '+esc(J.base_strength)+
+    '% · '+esc(R.flashes)+' flash'+(R.flashes===1?"":"es")+
+    (loc.size_in? ' · '+esc(loc.size_in)+'"':"")+'</div>'+
+    '<div class="tiny" style="margin-top:8px">Source: '+esc(loc.source||"proof")+'</div>';
+  out.appendChild(hd);
+
+  // art-room release state — the first thing the operator should read
+  const ap=approvalOf(loc);
+  const rel=el("div","relbar"+(ap? (ap.from==="corrected"?" fixed":" ok") : " none"));
+  if(ap && ap.from==="corrected"){
+    rel.innerHTML='<b>ART CHANGED THIS</b><br>'+esc(ap.note||"")+
+      '<span class="tiny"> · '+esc(ap.ts||"")+'</span>';
+  } else if(ap){
+    rel.innerHTML='<b>✓ RELEASED BY ART</b><span class="tiny"> · '+
+      esc(ap.approved_by||"art")+' · '+esc(ap.ts||"")+'</span>';
+  } else {
+    rel.innerHTML='<b>NOT RELEASED YET</b><br>'+
+      'This is the tool\'s prediction. Art has not signed off on it.';
+  }
+  out.appendChild(rel);
+
+  (R.warnings||[]).forEach(w=>{
+    const b=el("div","warnbox"); b.textContent="⚠ "+w; out.appendChild(b);
+  });
+
+  const list = ORDERED || stepsOf(loc);
+  const conf = R.confidence||{};
+  list.forEach((s,i)=>{
+    const role=roleOf(s);
+    const d=el("div","step "+role);
+    d.appendChild(el("div","pos",String(i+1)));
+    const mid=el("div","mid");
+    mid.appendChild(el("div","nm", s.plate||s.ink||"—"));
+    const sub=[];
+    if(s.mesh) sub.push(s.mesh+" mesh");
+    if(s.ink && s.plate && s.ink!==s.plate) sub.push(s.ink);
+    mid.appendChild(el("div","sub", sub.join(" · ")));
+    const bg=el("div","badges");
+    if(s.flash) bg.appendChild(el("span","bdg f","FLASH"));
+    if(s.mash)  bg.appendChild(el("span","bdg m","MASH"));
+    if(s.rule){
+      const c=String(conf[s.rule]||"").split(" ")[0];
+      const r=el("span","bdg r", s.rule);
+      bg.appendChild(r);
+      if(c){const cc=el("span","conf "+c, c.toUpperCase()); cc.style.alignSelf="center"; bg.appendChild(cc);}
+    }
+    if(s.note) mid.appendChild(el("div","tiny", s.note));
+    mid.appendChild(bg);
+    d.appendChild(mid);
+    if(ORDERED){
+      const mv=el("div","mv");
+      const up=el("button",null,"▲"), dn=el("button",null,"▼");
+      up.disabled=i===0; dn.disabled=i===list.length-1;
+      up.onclick=()=>{const a=ORDERED;[a[i-1],a[i]]=[a[i],a[i-1]];paintRotation();};
+      dn.onclick=()=>{const a=ORDERED;[a[i+1],a[i]]=[a[i],a[i+1]];paintRotation();};
+      mv.appendChild(up);mv.appendChild(dn);d.appendChild(mv);
+    }
+    out.appendChild(d);
+  });
+
+  if(!ORDERED){
+    const a=el("button","btn good lg","✓ Ran it as shown"); a.style.marginTop="8px";
+    a.onclick=()=>sendFeedback(true,"","");
+    const b=el("button","btn lg","Changed the order"); b.style.marginTop="12px";
+    b.onclick=()=>{ORDERED=stepsOf(loc).map(x=>Object.assign({},x));paintRotation();};
+    out.appendChild(a); out.appendChild(b);
+  } else {
+    const p=el("div","muted","Put it in the order you actually ran, then say why.");
+    p.style.margin="14px 0 8px"; out.appendChild(p);
+    const done=el("button","btn primary lg","Save what I ran"); done.onclick=askReason;
+    const cx=el("button","btn ghost","Cancel"); cx.style.marginTop="12px";
+    cx.onclick=()=>{ORDERED=null;paintRotation();};
+    out.appendChild(done); out.appendChild(cx);
+  }
+}
+const REASONS=["Trapping","Keyline / registration","Flash budget","Bleeder color",
+               "Base too heavy","Customer / art call","Press setup","Other"];
+function askReason(){
+  modal(`<h3>Why did it change?</h3>
+    <div class="chips" id="rz"></div>
+    <div class="field" style="margin-top:16px"><label>Anything else</label>
+      <input id="rz_more" placeholder="optional"></div>
+    <button class="btn primary lg" id="rz_ok">Save</button>
+    <button class="btn ghost" id="rz_x" style="margin-top:12px">Back</button>`);
+  const sel=new Set(); const h=$("#rz");
+  REASONS.forEach(r=>{const b=el("button","chip",r);
+    b.onclick=()=>{sel.has(r)?(sel.delete(r),b.classList.remove("on"))
+                            :(sel.add(r),b.classList.add("on"));};
+    h.appendChild(b);});
+  $("#rz_x").onclick=closeModal;
+  $("#rz_ok").onclick=()=>{
+    if(!sel.size){toast("Pick at least one reason","bad");return;}
+    const extra=$("#rz_more").value.trim();
+    closeModal();
+    sendFeedback(false, [...sel].join("; ")+(extra?" — "+extra:""),
+                 ORDERED.map((s,i)=>(i+1)+". "+(s.plate||s.ink)).join("  |  "));
+  };
+}
+async function sendFeedback(agree,reason,corrected){
+  const loc=activeLoc(); if(!loc) return;
+  const R=loc.result;
+  const body={
+    graphic:ROT.graphic, agree, reason, corrected,
+    predicted: stepsOf(loc).map(s=>s.plate||s.ink),
+    rotation: (ORDERED||stepsOf(loc)),
+    job: R.job||{}, source: loc.source||"", signals_used: !!R.signals_used
+  };
+  /* On a GitHub Pages tablet there is no /port/feedback to call — the
+     pipeline is unreachable from here. The answer rides on the press-log row
+     instead, which is the better home for it anyway: the floor's decision and
+     the setup minutes it cost end up on the same line. */
+  if(rotationSource()==="sheet"){
+    PORTLINK && Object.assign(PORTLINK,{
+      decision: agree?"agree":"override", reason,
+      ran: corrected || PORTLINK.predicted });
+    ORDERED=null; paintLink(); paintRotation(); save();
+    toast(agree ? "Saved with this job" : "Override saved with this job","good");
+    return;
+  }
+  setSync("busy");
+  try{
+    const r=await fetch(CFG.PORT_BASE+"/port/feedback",
+      {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(d.ok){
+      setSync("ok");
+      // stamp the join so the press-log row carries the rotation decision
+      if(PORTLINK){
+        PORTLINK.decision = agree ? "agree" : "override";
+        PORTLINK.reason = reason;
+        PORTLINK.ran = corrected || PORTLINK.predicted;
+      }
+      ORDERED=null; paintLink(); paintRotation(); save();
+      toast(agree?"Logged — ran as shown":"Logged — override saved","good"); }
+    else { setSync("err"); toast("Not saved: "+(d.message||"error"),"bad"); }
+  }catch(e){ setSync("err"); toast("Not saved — no connection","bad"); }
+}
+
+/* ==========================================================================
+   SUBMIT — Google Apps Script. Column mapping lives in the Apps Script;
+   this end sends NAMED fields only, so a schema change can never silently
+   shift a column here.
+   ========================================================================== */
+async function post(payload){
+  const url = S.sheetUrl || CFG.SHEET_URL;
+  if(!url){ toast("No Apps Script URL set — tap ⚙","bad"); return false; }
+  payload.token = S.token || CFG.SHEET_TOKEN;
+  payload.station = S.station; payload.operator = S.operator;
+  payload.clientTs = new Date().toISOString();
+  setSync("busy");
+  try{
+    // text/plain dodges the CORS preflight Apps Script cannot answer.
+    await fetch(url,{method:"POST",mode:"no-cors",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify(payload)});
+    setSync("ok"); return true;
+  }catch(e){
+    setSync("err");
+    const q=JSON.parse(localStorage.getItem("pp_queue")||"[]");
+    q.push(payload); localStorage.setItem("pp_queue",JSON.stringify(q));
+    toast("Saved on the tablet — will send when wifi is back","bad");
+    return false;
+  }
+}
+async function flushQueue(){
+  const q=JSON.parse(localStorage.getItem("pp_queue")||"[]");
+  if(!q.length) return;
+  const url=S.sheetUrl||CFG.SHEET_URL; if(!url) return;
+  const left=[];
+  for(const p of q){
+    try{ await fetch(url,{method:"POST",mode:"no-cors",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(p)}); }
+    catch(e){ left.push(p); }
+  }
+  localStorage.setItem("pp_queue",JSON.stringify(left));
+  if(q.length && !left.length) toast("Sent "+q.length+" saved job(s)","good");
+}
+
+function reqOperator(){
+  if(!S.station || !S.operator){ toast("Set the press and operator — tap ⚙","bad");
+    openCfg(); return false; }
+  return true;
+}
+$("#p_submit").onclick = async ()=>{
+  if(!reqOperator()) return;
+  const colors=parseInt($("#p_colors").value||"0",10);
+  if(!$("#p_order").value.trim()){toast("Order # is required","bad");return;}
+  if(!colors){toast("Colors / screens is required","bad");return;}
+  [PT.setup,PT.run,PT.wait].forEach(t=>{if(t.running)tToggle(t);});
+  const setupMin=mins(tElapsed(PT.setup)), runMin=mins(tElapsed(PT.run)),
+        waitMin=mins(tElapsed(PT.wait));
+  const rate=colors?setupMin/colors:0;
+  const ok = await post({
+    source:"press",
+    order:$("#p_order").value.trim(), colors, pieces:$("#p_pieces").value.trim(),
+    garment:$("#p_garment").value.trim(),
+    setupMin:+setupMin.toFixed(2), runMin:+runMin.toFixed(2), waitMin:+waitMin.toFixed(2),
+    setupMinPerScreen:+rate.toFixed(2),
+    // runaway flags travel WITH the row — the report excludes, it never clips
+    setupRunaway: PT.setup.flagged || rate>K.SETUP_CEILING_MIN_PER_SCREEN,
+    runRunaway:   PT.run.flagged   || runMin>K.RUN_CEILING_MIN,
+    waitRunaway:  PT.wait.flagged  || waitMin>K.WAIT_CEILING_MIN,
+    activities:[...picked.act].join("; "),
+    delays:[...picked.delay].join("; "), delayOther:otherText.delay,
+    problems:[...picked.prob].join("; "), problemOther:otherText.prob,
+    notes:$("#p_notes").value.trim(),
+    // ---- the PORT join: same row as the setup minutes above ----
+    portGraphic:   PORTLINK ? PORTLINK.graphic : "",
+    portLocation:  PORTLINK ? PORTLINK.location : "",
+    portApproved:  PORTLINK ? (PORTLINK.approvedBy || "") : "",
+    portDecision:  PORTLINK ? (PORTLINK.decision || "") : "",
+    portReason:    PORTLINK ? PORTLINK.reason : "",
+    portPredicted: PORTLINK ? PORTLINK.predicted : "",
+    portRan:       PORTLINK ? PORTLINK.ran : "",
+    portFlashes:   PORTLINK ? PORTLINK.flashes : ""
+  });
+  if(ok!==false) toast("Job submitted","good");
+  clearPress();
+};
+function clearPress(){
+  ["#p_order","#p_colors","#p_pieces","#p_garment","#p_notes"].forEach(s=>$(s).value="");
+  [PT.setup,PT.run,PT.wait].forEach(tReset);
+  picked.act.clear();picked.delay.clear();picked.prob.clear();
+  otherText.delay="";otherText.prob="";
+  PORTLINK=null;
+  buildChips("#c_act","act");buildChips("#c_delay","delay","warnc");
+  buildChips("#c_prob","prob","badc");
+  save(); paintTimers(); paintLink();
+}
+$("#p_clear").onclick=()=>{ if(confirm("Clear this job?")) clearPress(); };
+
+/* ==========================================================================
+   SCREEN ROOM — one row per screen-prep job, the way the log actually works:
+   the mesh belongs to the SCREEN, not to the job, so each screen carries its
+   own mesh and its own reshoot flag. The screen room runs several jobs at
+   once and finishes them at different times, so each job gets its own tab
+   with its own prep and finish clocks.
+   ========================================================================== */
+let dmode="job", DJOBS=[], djIdx=0;
+function newJob(){
+  return {id:"j"+Math.random().toString(36).slice(2,8), order:"",
+          screens:[{mesh:null,reshoot:false}],
+          prep:  mkTimer("prep","Prep",  ()=>K.PREP_CEILING_MIN),
+          finish:mkTimer("finish","Finish",()=>K.PREP_CEILING_MIN)};
+}
+function curJob(){
+  if(!DJOBS.length) DJOBS=[newJob()];
+  if(djIdx<0||djIdx>=DJOBS.length) djIdx=DJOBS.length-1;
+  return DJOBS[djIdx];
+}
+function syncJobTimers(){ const j=curJob(); DT.prep=j.prep; DT.finish=j.finish; }
+
+function paintJobTabs(){
+  const h=$("#d_tabs"); h.innerHTML="";
+  DJOBS.forEach((j,i)=>{
+    const b=el("button",i===djIdx?"on":null, j.order ? j.order : "Job "+(i+1));
+    b.onclick=()=>{djIdx=i;syncJobTimers();save();paintDark();paintTimers();};
+    h.appendChild(b);
+  });
+  const a=el("button","add","+");
+  a.onclick=()=>{DJOBS.push(newJob());djIdx=DJOBS.length-1;syncJobTimers();
+                 save();paintDark();paintTimers();};
+  h.appendChild(a);
+}
+function paintScreens(){
+  const j=curJob(), h=$("#d_screenlist"); h.innerHTML="";
+  $("#d_count").textContent = j.screens.length +
+    " screen"+(j.screens.length===1?"":"s")+
+    (j.screens.filter(s=>s.reshoot).length ? " · "+
+      j.screens.filter(s=>s.reshoot).length+" reshoot" : "");
+  j.screens.forEach((s,i)=>{
+    const d=el("div","scr"+(s.reshoot?" re":""));
+    const hd=el("div","hd");
+    const n=el("div","n"); n.innerHTML="Screen "+(i+1)+
+      (s.mesh?'<small>'+s.mesh+' mesh</small>':'<small>no mesh yet</small>');
+    hd.appendChild(n);
+    const re=el("button",s.reshoot?"on":null,"Reshoot");
+    re.onclick=()=>{s.reshoot=!s.reshoot;save();paintScreens();};
+    hd.appendChild(re);
+    const x=el("button","del","✕");
+    x.onclick=()=>{ if(j.screens.length===1) return;
+                    j.screens.splice(i,1);save();paintScreens(); };
+    hd.appendChild(x);
+    d.appendChild(hd);
+    const m=el("div","mesh");
+    CHIPS.mesh.forEach(v=>{
+      const b=el("button",s.mesh===v?"on":null,v);
+      b.onclick=()=>{s.mesh = (s.mesh===v? null : v); save(); paintScreens();};
+      m.appendChild(b);
+    });
+    d.appendChild(m);
+    h.appendChild(d);
+  });
+}
+function paintDark(){
+  $("#d_job").style.display = dmode==="job"?"":"none";
+  $("#d_shift").style.display = dmode==="shift"?"":"none";
+  $$("#v-dark .chip[data-mode]").forEach(b=>b.classList.toggle("on",b.dataset.mode===dmode));
+  if(dmode==="job"){ paintJobTabs(); paintScreens();
+                     $("#d_order").value = curJob().order || ""; }
+}
+$$("#v-dark .chip[data-mode]").forEach(b=>b.onclick=()=>{dmode=b.dataset.mode;save();paintDark();});
+$("#scr_add").onclick=()=>{curJob().screens.push({mesh:null,reshoot:false});
+                           save();paintScreens();};
+$("#d_order").addEventListener("input",()=>{curJob().order=$("#d_order").value;
+                                            save();paintJobTabs();});
+$("#d_submit").onclick = async ()=>{
+  if(!reqOperator()) return;
+  [DT.prep,DT.finish,DT.shift].forEach(t=>{if(t.running)tToggle(t);});
+  const p={
+    source:"darkroom", mode:dmode,
+    humidity:$("#d_hum").value.trim(),
+    problems:[...picked.dprob].join("; "), problemOther:otherText.dprob,
+    notes:$("#d_notes").value.trim()
+  };
+  if(dmode==="job"){
+    const j=curJob();
+    if(!j.order.trim()){toast("Order # is required","bad");return;}
+    if(j.screens.some(s=>!s.mesh)){toast("Every screen needs a mesh count","bad");return;}
+    Object.assign(p,{
+      order:j.order.trim(),
+      screens:j.screens.length,
+      // per-screen, IN SCREEN ORDER — "155, 155, 230" not a set of counts used
+      mesh:j.screens.map(s=>s.mesh).join(", "),
+      reshoots:j.screens.filter(s=>s.reshoot).length,
+      reshootScreens:j.screens.map((s,i)=>s.reshoot?(i+1):null)
+                              .filter(Boolean).join(", "),
+      prepMin:+mins(tElapsed(j.prep)).toFixed(2),
+      finishMin:+mins(tElapsed(j.finish)).toFixed(2),
+      prepRunaway: j.prep.flagged, finishRunaway: j.finish.flagged
+    });
+  } else {
+    Object.assign(p,{
+      coated:$("#s_coat").value.trim(), reclaimed:$("#s_reclaim").value.trim(),
+      stretched:$("#s_stretch").value.trim(), cleaned:$("#s_clean").value.trim(),
+      shiftMin:+mins(tElapsed(DT.shift)).toFixed(2), shiftRunaway: DT.shift.flagged
+    });
+  }
+  const ok=await post(p);
+  if(ok!==false) toast("Submitted","good");
+  clearDark();
+};
+/* A submitted job closes its own tab — the screen room's other jobs are still
+   in flight and must keep their clocks. */
+function clearDark(){
+  if(dmode==="job"){
+    DJOBS.splice(djIdx,1);
+    if(!DJOBS.length) DJOBS=[newJob()];
+    djIdx=Math.min(djIdx,DJOBS.length-1);
+    syncJobTimers();
+  } else {
+    ["#s_coat","#s_reclaim","#s_stretch","#s_clean"].forEach(s=>$(s).value="");
+    tReset(DT.shift);
+  }
+  $("#d_notes").value="";
+  picked.dprob.clear(); otherText.dprob="";
+  buildChips("#c_dprob","dprob","badc");
+  save(); paintDark(); paintTimers();
+}
+$("#d_clear").onclick=()=>{
+  if(confirm(dmode==="job"?"Close this job without submitting?":"Clear this entry?"))
+    clearDark();
+};
+
+/* ==========================================================================
+   NUMBERS — two things only: the operator's own day, and this press vs target.
+   ========================================================================== */
+function kpi(host,val,label,delta,cls){
+  const d=el("div","kpi");
+  d.appendChild(el("div","v",val));
+  d.appendChild(el("div","l",label));
+  if(delta) d.appendChild(el("div","d "+(cls||""),delta));
+  host.appendChild(d);
+}
+async function loadKpis(){
+  const me=$("#k_me"), pr=$("#k_press");
+  me.innerHTML='<div class="kpi muted">…</div>'; pr.innerHTML="";
+  const url=S.sheetUrl||CFG.SHEET_URL;
+  if(!url){me.innerHTML='<div class="kpi muted">No Apps Script URL set — tap ⚙</div>';return;}
+  try{
+    const q=url+"?fn=kpi&operator="+encodeURIComponent(S.operator)+
+            "&station="+encodeURIComponent(S.station);
+    const r=await fetch(q,{cache:"no-store"});
+    const d=await r.json();
+    me.innerHTML="";
+    kpi(me, String(d.myJobs||0), "Jobs today");
+    kpi(me, String(d.myPieces||0), "Pieces today");
+    kpi(me, (d.myRate!=null? Number(d.myRate).toFixed(1):"—"), "Min / screen (setup)",
+        d.myRateVsAvg!=null ? (d.myRateVsAvg<=0?"▼ ":"▲ ")+Math.abs(d.myRateVsAvg).toFixed(1)+" vs your average" : "",
+        d.myRateVsAvg<=0?"up":"down");
+    kpi(me, (d.mySetupMin!=null? Math.round(d.mySetupMin)+"m":"—"), "Setup time today");
+
+    const t=K.SETUP_TARGET_MIN_PER_SCREEN;
+    const rate = d.pressRate!=null ? Number(d.pressRate) : null;
+    const box=el("div","kpi");
+    box.innerHTML =
+      '<div class="v">'+(rate!=null?rate.toFixed(1):"—")+
+      ' <span style="font-size:22px;color:var(--dim)">min/screen</span></div>'+
+      '<div class="l">'+esc(S.station||"This press")+' today · target '+t+'</div>'+
+      '<div class="bar"><i style="width:'+
+        (rate!=null? Math.max(4,Math.min(100, (t/Math.max(rate,0.1))*100)) : 0)+
+        '%;background:'+(rate!=null&&rate<=t?"var(--good)":"var(--warn)")+'"></i></div>'+
+      '<div class="d '+(rate!=null&&rate<=t?"up":"down")+'">'+
+        (rate!=null ? (rate<=t? "at or under target" : "+"+(rate-t).toFixed(1)+" over target") : "no jobs logged yet")+
+      '</div>';
+    pr.appendChild(box);
+    $("#k_note").textContent = "Runaway rows (setup over "+K.SETUP_CEILING_MIN_PER_SCREEN+
+      " min/screen) are excluded from these averages, not trimmed. "+
+      (d.excluded? d.excluded+" excluded today.":"");
+    setSync("ok");
+  }catch(e){
+    me.innerHTML='<div class="kpi muted">Can\'t reach the sheet.</div>'; setSync("err");
+  }
+}
+$("#k_refresh").onclick=loadKpis;
+
+/* ==========================================================================
+   DEMO INTRO — the difference between a demo someone drives and a link
+   someone opens cold. Says what the tablet is for, names the three jobs to
+   try and what each one shows, and promises nothing is saved anywhere.
+   ========================================================================== */
+function demoIntro(){
+  modal(`<h3>The press tablet — what you're looking at</h3>
+  <p class="muted" style="margin-top:0">This is the screen that would live at the press.
+  It shows the print order the art room released, takes the setup and run times,
+  and keeps the screen-room log. Nothing you tap here is saved anywhere — it's a
+  sample with three jobs loaded.</p>
+
+  <h3 style="font-size:20px;margin-bottom:8px">Try these three</h3>
+  <div class="chips" style="flex-direction:column;align-items:stretch;gap:10px">
+    <button class="chip" data-demo="754205" style="text-align:left">
+      <b>754205</b> — art approved it. Green bar, two locations.</button>
+    <button class="chip" data-demo="392841" style="text-align:left">
+      <b>392841</b> — art <i>changed</i> it. Amber bar, and the steps are art's order, not the tool's.</button>
+    <button class="chip" data-demo="680203" style="text-align:left">
+      <b>680203</b> — nobody released it yet. Grey bar, prediction only.</button>
+  </div>
+
+  <p class="muted" style="margin-top:18px">Then say <b>Ran it as shown</b> or
+  <b>Changed the order</b> — that answer follows the job into the press log,
+  so the setup time and the rotation land on the same line.</p>
+  <p class="tiny">PRESS LOG has the timers. NUMBERS is what the operator sees about their own day.
+  The ? up top brings this back.</p>
+
+  <button class="btn primary lg" id="di_go" style="margin-top:8px">Start</button>`);
+  $$("#modalBox .chip[data-demo]").forEach(b=>b.onclick=()=>{
+    const g=b.dataset.demo; closeModal();
+    try{localStorage.setItem("pp_demo_seen","1");}catch(e){}
+    $("#lookup").classList.remove("mini"); $("#jobno").value=g; predict(g);
+  });
+  $("#di_go").onclick=()=>{ closeModal();
+    try{localStorage.setItem("pp_demo_seen","1");}catch(e){} };
+}
+
+/* ========================= boot ========================= */
+function tick(){
+  const d=new Date();
+  $("#clock").textContent=pad(d.getHours())+":"+pad(d.getMinutes());
+  paintTimers();
+  checkin();
+}
+function boot(){
+  restore(); syncJobTimers();
+  paintBar(); applyKind(); paintRecent(); paintDark(); paintLink();
+  buildChips("#c_act","act");
+  buildChips("#c_delay","delay","warnc");
+  buildChips("#c_prob","prob","badc");
+  buildChips("#c_dprob","dprob","badc");
+  paintTimers();
+  $("#cfgbtn").onclick=openCfg;
+  $("#relook").onclick=()=>{$("#lookup").classList.remove("mini");
+                            $("#jobno").value="";$("#rotOut").innerHTML="";ROT=null;ORDERED=null;};
+  $("#p_colors").addEventListener("input",()=>{paintRate();save();});
+  $$("input,textarea").forEach(n=>n.addEventListener("input",save));
+  setInterval(tick,1000);
+  setInterval(save,K.AUTOSAVE_MS);
+  // a setInterval does not fire while the tablet sleeps — repaint on wake
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden){tick();flushQueue();} });
+  window.addEventListener("online",flushQueue);
+  flushQueue();
+  if(DEMO){
+    if(!S.station) S.station="Press 3";
+    if(!S.operator) S.operator="Operator";
+    S.kind="both"; applyKind();
+    S.sheetUrl = S.sheetUrl || "https://script.google.com/demo/exec";
+    if(!recent.length){ recent=["754205","392841","680203"]; paintRecent(); }
+    paintBar();
+    const c=el("span","pill warn","DEMO"); c.style.marginLeft="10px";
+    $("#opName").appendChild(c);
+    $("#cfgbtn").textContent="?";
+    $("#cfgbtn").onclick=demoIntro;
+    try{ if(!localStorage.getItem("pp_demo_seen")) demoIntro(); }catch(e){ demoIntro(); }
+    return;
+  }
+  if(!S.station||!S.operator) openCfg();
+}
+boot();
+</script>
+</body>
+</html>
