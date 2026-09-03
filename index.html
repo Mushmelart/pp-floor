@@ -517,7 +517,7 @@ if (DEMO) {
          confidence:{R5:"low (light body: lightest → darkest, art order kept)",R6:"high (light + no base → black last ~83%)",R10:"high"},
          rotation:rot([["7455 C","Sky (7455 C)",200,"R5"],
                        ["1795 C","Red (1795 C)",200,"R5"],
-                       ["BLK","BLK",305,"R6",0,0,"black last — keyline over the bare shirt (R6)"]])}}]}
+                       ["BLK","BLK",305,"R6",0,0,"black last — keyline"]])}}]}
   };
   const realFetch = window.fetch.bind(window);
   window.fetch = (url, opt) => {
@@ -1098,10 +1098,14 @@ function paintRotation(){
     if(s.mash)  bg.appendChild(el("span","bdg m","MASH"));
     // Confidence shows only while a rotation is unreleased. Once art has
     // signed off, their call stands and the tool's certainty is moot.
+    /* What the tool is unsure about is where the step sits in the sequence,
+       never the ink or the mesh. It has to be said in the shop's own words:
+       "order" on its own reads as the customer's order, so the badge says
+       PRINT ORDER — the floor's name for the sequence, and the tool's. */
     if(!ap && s.rule){
       const c=String(conf[s.rule]||"").split(" ")[0];
-      if(c==="medium"||c==="low")
-        bg.appendChild(el("span","conf "+c,"NOT CERTAIN"));
+      if(c==="low")    bg.appendChild(el("span","conf low","LOW CONFIDENCE — PRINT ORDER"));
+      if(c==="medium") bg.appendChild(el("span","conf medium","MEDIUM CONFIDENCE — PRINT ORDER"));
     }
     if(s.note) mid.appendChild(el("div","tiny", plain(s.note)));
     mid.appendChild(bg);
