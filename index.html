@@ -137,6 +137,16 @@ label{display:block;font-size:17px;color:var(--dim);margin:0 0 6px;font-weight:6
 .step .mv{display:flex;flex-direction:column;gap:6px}
 .step .mv button{width:56px;height:44px;border-radius:8px;border:2px solid var(--line);
                  background:var(--panel2);color:var(--ink);font-size:18px}
+/* flash / mash toggles, shown only while correcting a rotation */
+.ctl{display:flex;gap:10px;margin-top:10px}
+.tgl{min-height:56px;padding:12px 22px;border-radius:10px;border:2px dashed var(--line);
+     background:transparent;color:var(--faint);font-size:18px;font-weight:800;letter-spacing:.5px}
+.tgl.on{border-style:solid;background:var(--flash);border-color:var(--flash);color:#2a1d00}
+.tgl.on.m{background:#334155;border-color:#334155;color:#dbeafe}
+.flashbar{display:flex;align-items:center;gap:12px;background:var(--panel2);
+  border:2px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;font-size:19px}
+.flashbar.over{border-color:var(--bad);background:#2a1210}
+.flashbar b{font-size:22px}
 .badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 .bdg{padding:4px 10px;border-radius:6px;font-size:15px;font-weight:800;letter-spacing:.5px}
 .bdg.f{background:var(--flash);color:#2a1d00}
@@ -880,7 +890,7 @@ function paintLink(){
     (PORTLINK.approvedBy?' · released by '+esc(PORTLINK.approvedBy):' · not released')+
     '<br><span class="tiny">'+
     (st==="agree" ? '✓ ran the predicted order'
-     : st==="override" ? '✎ changed — '+esc(PORTLINK.reason||"")
+     : st==="override" ? '✎ changed ('+esc(PORTLINK.changeType||"order")+') — '+esc(PORTLINK.reason||"")
      : 'not answered yet — tap ROTATION and say what you ran')+'</span>';
   d.appendChild(t);
   const x=el("button","x","✕"); x.title="unlink";
@@ -947,6 +957,12 @@ function stepsOf(loc){
   return (loc && loc.result && loc.result.rotation) || [];
 }
 function approvalOf(loc){return loc && loc.approved ? loc.approved : null;}
+/* Rule codes (R1, R5a, R10…) are the rotation tool's own bookkeeping. They
+   mean nothing standing at a press, so they are stripped out of every note
+   and warning before anything reaches the operator. */
+const plain = t => String(t==null?"":t)
+  .replace(/\s*\(R\d+[a-z]?\)/g,"").replace(/\s{2,}/g," ").trim();
+function flashCount(steps){return steps.filter(s=>s.flash).length;}
 /* The rotation is the source of truth for the fields the press log used to
    ask the operator to key in by hand: the order number, how many screens,
    and the garment. Every step in a rotation IS a screen, underbase included,
@@ -1029,11 +1045,22 @@ function paintRotation(){
   out.appendChild(rel);
 
   (R.warnings||[]).forEach(w=>{
-    const b=el("div","warnbox"); b.textContent="⚠ "+w; out.appendChild(b);
+    const b=el("div","warnbox"); b.textContent="⚠ "+plain(w); out.appendChild(b);
   });
 
   const list = ORDERED || stepsOf(loc);
   const conf = R.confidence||{};
+
+  if(ORDERED){
+    // Most presses are set for two flashes. A third is not forbidden, but the
+    // operator should be told, not silently allowed to log something the press
+    // cannot actually do.
+    const n=flashCount(list);
+    const fb=el("div","flashbar"+(n>2?" over":""));
+    fb.innerHTML="<b>"+n+"</b> flash"+(n===1?"":"es")+
+      (n>2 ? " — most presses are set for 2. Sure?" : "");
+    out.appendChild(fb);
+  }
   list.forEach((s,i)=>{
     const role=roleOf(s);
     const d=el("div","step "+role);
@@ -1047,14 +1074,27 @@ function paintRotation(){
     const bg=el("div","badges");
     if(s.flash) bg.appendChild(el("span","bdg f","FLASH"));
     if(s.mash)  bg.appendChild(el("span","bdg m","MASH"));
-    if(s.rule){
+    // Confidence shows only while a rotation is unreleased. Once art has
+    // signed off, their call stands and the tool's certainty is moot.
+    if(!ap && s.rule){
       const c=String(conf[s.rule]||"").split(" ")[0];
-      const r=el("span","bdg r", s.rule);
-      bg.appendChild(r);
-      if(c){const cc=el("span","conf "+c, c.toUpperCase()); cc.style.alignSelf="center"; bg.appendChild(cc);}
+      if(c==="medium"||c==="low")
+        bg.appendChild(el("span","conf "+c,"NOT CERTAIN"));
     }
-    if(s.note) mid.appendChild(el("div","tiny", s.note));
+    if(s.note) mid.appendChild(el("div","tiny", plain(s.note)));
     mid.appendChild(bg);
+    if(ORDERED){
+      // A flash is a property of the step it follows, so toggling it here
+      // moves, adds or removes a flash without disturbing the colour order —
+      // which is what most floor corrections actually are.
+      const ctl=el("div","ctl");
+      const f=el("button","tgl"+(s.flash?" on":""),"FLASH");
+      f.onclick=()=>{s.flash=!s.flash;paintRotation();};
+      const m=el("button","tgl m"+(s.mash?" on":""),"MASH");
+      m.onclick=()=>{s.mash=!s.mash;paintRotation();};
+      ctl.appendChild(f); ctl.appendChild(m);
+      mid.appendChild(ctl);
+    }
     d.appendChild(mid);
     if(ORDERED){
       const mv=el("div","mv");
@@ -1074,13 +1114,30 @@ function paintRotation(){
     b.onclick=()=>{ORDERED=stepsOf(loc).map(x=>Object.assign({},x));paintRotation();};
     out.appendChild(a); out.appendChild(b);
   } else {
-    const p=el("div","muted","Put it in the order you actually ran, then say why.");
+    const p=el("div","muted",
+      "Put it in the order you actually ran. Tap FLASH on the step you flashed after.");
     p.style.margin="14px 0 8px"; out.appendChild(p);
     const done=el("button","btn primary lg","Save what I ran"); done.onclick=askReason;
     const cx=el("button","btn ghost","Cancel"); cx.style.marginTop="12px";
     cx.onclick=()=>{ORDERED=null;paintRotation();};
     out.appendChild(done); out.appendChild(cx);
   }
+}
+function correctedText(steps){
+  return steps.map((s,i)=>(i+1)+". "+(s.plate||s.ink)+
+    (s.flash?"  *FLASH":"")+(s.mash?"  +MASH":"")).join("  |  ");
+}
+/* Was this a real sequencing disagreement, or only a flash call? Worth
+   separating: a floor that keeps adding a flash after the same colour is
+   telling you something different from a floor that keeps resequencing. */
+function whatChanged(loc){
+  const was=stepsOf(loc), now=ORDERED||[];
+  const names=a=>a.map(s=>s.plate||s.ink).join("|");
+  const marks=a=>{const m={};a.forEach(s=>{
+    m[s.plate||s.ink]=(s.flash?"F":"")+(s.mash?"M":"");}); return JSON.stringify(m);};
+  const order = names(was)!==names(now);
+  const flash = marks(was)!==marks(now);
+  return order&&flash ? "order+flash" : order ? "order" : flash ? "flash" : "none";
 }
 const REASONS=["Trapping","Keyline / registration","Flash budget","Bleeder color",
                "Base too heavy","Customer / art call","Press setup","Other"];
@@ -1098,14 +1155,18 @@ function askReason(){
     h.appendChild(b);});
   $("#rz_x").onclick=closeModal;
   $("#rz_ok").onclick=()=>{
+    const kind=whatChanged(activeLoc());
+    if(kind==="none"){
+      toast("Nothing changed — use 'Ran it as shown'","bad"); return;
+    }
     if(!sel.size){toast("Pick at least one reason","bad");return;}
     const extra=$("#rz_more").value.trim();
     closeModal();
     sendFeedback(false, [...sel].join("; ")+(extra?" — "+extra:""),
-                 ORDERED.map((s,i)=>(i+1)+". "+(s.plate||s.ink)).join("  |  "));
+                 correctedText(ORDERED), kind);
   };
 }
-async function sendFeedback(agree,reason,corrected){
+async function sendFeedback(agree,reason,corrected,kind){
   const loc=activeLoc(); if(!loc) return;
   const R=loc.result;
   const body={
@@ -1121,6 +1182,7 @@ async function sendFeedback(agree,reason,corrected){
   if(rotationSource()==="sheet"){
     PORTLINK && Object.assign(PORTLINK,{
       decision: agree?"agree":"override", reason,
+      changeType: agree?"":(kind||""),
       ran: corrected || PORTLINK.predicted });
     ORDERED=null; paintLink(); paintRotation(); save();
     toast(agree ? "Saved with this job" : "Override saved with this job","good");
@@ -1137,6 +1199,7 @@ async function sendFeedback(agree,reason,corrected){
       if(PORTLINK){
         PORTLINK.decision = agree ? "agree" : "override";
         PORTLINK.reason = reason;
+        PORTLINK.changeType = agree ? "" : (kind||"");
         PORTLINK.ran = corrected || PORTLINK.predicted;
       }
       ORDERED=null; paintLink(); paintRotation(); save();
@@ -1218,6 +1281,7 @@ $("#p_submit").onclick = async ()=>{
     portLocation:  PORTLINK ? PORTLINK.location : "",
     portApproved:  PORTLINK ? (PORTLINK.approvedBy || "") : "",
     portDecision:  PORTLINK ? (PORTLINK.decision || "") : "",
+    portChangeType:PORTLINK ? (PORTLINK.changeType || "") : "",
     portReason:    PORTLINK ? PORTLINK.reason : "",
     portPredicted: PORTLINK ? PORTLINK.predicted : "",
     portRan:       PORTLINK ? PORTLINK.ran : "",
