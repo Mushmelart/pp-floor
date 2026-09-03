@@ -460,9 +460,24 @@ if (DEMO) {
   const rot = (a) => a.map(x => ({ink:x[0], plate:x[1], mesh:x[2], rule:x[3],
                                   flash:!!x[4], mash:!!x[5], note:x[6]||undefined}));
   const JOBS = {
+    // 533000 is a real released job, carried in verbatim from the sheet —
+    // the number the shop actually reaches for should not come back empty.
+    "533000": {ok:true, graphic:"533000", locations:[
+      {label:"Front Center", size_in:8.5,
+       source:"533000_01_533000_FrontCenter_extracted_SEP_01_placed.ai (VectorSEP Output — measured)",
+       approved:{approved_by:"art", from:"predicted", ts:"today 3:01 PM",
+         rotation:rot([["Underbase","Underbase",110,"R1",1,1,"base first"],
+                       ["CG 8","COOL GREY 8 C",230,"R5"],
+                       ["WHT","WHT",155,"R7",0,0,"white last — highlight"]])},
+       result:{job:{body:"Jet Black",fabric:"SPORT FLEECE",method:"hyperprint",base_strength:100},
+         flashes:1, signals_used:true, warnings:[],
+         confidence:{R1:"high",R5:"medium",R7:"high"},
+         rotation:rot([["Underbase","Underbase",110,"R1",1,1,"base first"],
+                       ["CG 8","COOL GREY 8 C",230,"R5"],
+                       ["WHT","WHT",155,"R7",0,0,"white last — highlight"]])}}]},
     "754205": {ok:true, graphic:"754205", locations:[
       {label:"Front Center", size_in:11.0, source:"754205_01_31_SEP_01_placed.ai (VectorSEP Output — measured)",
-       approved:{approved_by:"Sean (art)", from:"predicted", ts:"today 9:14 AM",
+       approved:{approved_by:"art", from:"predicted", ts:"today 9:14 AM",
          rotation:rot([["Underbase","Underbase",155,"R1",1,0,"base first (R1) — no MASH: base ≥ 50% (R3)"],
                        ["CG 8","Wolf Grey (Cool Grey 8C)",230,"R5"],
                        ["7714 C","Oceanic Teal (7714 C)",230,"R5"],
@@ -481,7 +496,7 @@ if (DEMO) {
          rotation:rot([["Underbase","Underbase",155,"R1",1,1],["BLK","BLK",230,"R6"]])}}]},
     "392841": {ok:true, graphic:"392841", locations:[
       {label:"Center Chest", size_in:11.0, source:"392841_01_placed.ai (VectorSEP Output — measured)",
-       approved:{approved_by:"Sean (art)", from:"corrected", ts:"today 8:02 AM",
+       approved:{approved_by:"art", from:"corrected", ts:"today 8:02 AM",
          note:"Art ran: 1. BLK  |  2. Underbase  |  3. Red 187  |  4. AB White — black is the keyline, and black-last blew the 2-flash cap",
          rotation:rot([["BLK","BLK",230,"R1a",0,0,"dark first — keyline (R1a)"],
                        ["Underbase","Underbase",155,"R1",1,1],
@@ -935,6 +950,7 @@ async function predict(g){
     ORDERED = null;
     recent = [g].concat(recent.filter(x=>x!==g)).slice(0,K.RECENT_JOBS);
     $("#lookup").classList.add("mini");
+    $("#jobno").value = d.graphic || g;   // keep the collapsed bar truthful
     setLink(); setJobNo(d.graphic);
     save(); paintRecent(); paintRotation();
   }catch(e){
@@ -980,7 +996,11 @@ function setLink(){
     garment:[J.body,J.fabric].filter(Boolean).join(" / "),
     method:J.method||"", baseStrength:J.base_strength,
     predicted:steps.map((s,i)=>(i+1)+". "+(s.plate||s.ink)).join("  |  "),
-    approvedBy: ap ? (ap.approved_by||"art")+(ap.from==="corrected"?" (corrected)":"") : "",
+    // The floor is told the art room released it, never who. Whatever the
+    // backend puts in approved_by is deliberately not rendered — an operator
+    // reading a colleague's name next to a rotation turns a process question
+    // into a personal one.
+    approvedBy: ap ? "Art"+(ap.from==="corrected"?" (corrected)":"") : "",
     decision: keep?PORTLINK.decision:null,
     reason: keep?PORTLINK.reason:"", ran: keep?PORTLINK.ran:""
   };
@@ -1031,16 +1051,18 @@ function paintRotation(){
 
   // art-room release state — the first thing the operator should read
   const ap=approvalOf(loc);
-  const rel=el("div","relbar"+(ap? (ap.from==="corrected"?" fixed":" ok") : " none"));
-  if(ap && ap.from==="corrected"){
-    rel.innerHTML='<b>ART CHANGED THIS</b><br>'+esc(ap.note||"")+
-      '<span class="tiny"> · '+esc(ap.ts||"")+'</span>';
-  } else if(ap){
-    rel.innerHTML='<b>✓ RELEASED BY ART</b><span class="tiny"> · '+
-      esc(ap.approved_by||"art")+' · '+esc(ap.ts||"")+'</span>';
+  /* The top line answers the only question an operator has walking up to the
+     press: can I run what is on this screen? Both released states answer yes
+     — the steps shown ARE what art signed off on, whether art took the tool's
+     order or fixed it. The fact that they fixed it is provenance, not a
+     warning about the thing you are looking at, so it goes below the steps. */
+  const rel=el("div","relbar"+(ap?" ok":" none"));
+  if(ap){
+    rel.innerHTML='<b>✓ RUN THIS AS SHOWN</b>'+
+      '<span class="tiny"> · released by Art · '+esc(ap.ts||"")+'</span>';
   } else {
     rel.innerHTML='<b>NOT RELEASED YET</b><br>'+
-      'This is the tool\'s prediction. Art has not signed off on it.';
+      'This is the tool\'s suggestion. Art has not signed off on it.';
   }
   out.appendChild(rel);
 
@@ -1106,6 +1128,14 @@ function paintRotation(){
     }
     out.appendChild(d);
   });
+
+  // provenance, after the thing it describes
+  if(ap && ap.from==="corrected" && !ORDERED){
+    const n=el("div","relbar fixed"); n.style.marginTop="14px";
+    n.innerHTML='<b>Art changed this from the tool\'s order.</b><br>'+
+      esc(plain(ap.note||""));
+    out.appendChild(n);
+  }
 
   if(!ORDERED){
     const a=el("button","btn good lg","✓ Ran it as shown"); a.style.marginTop="8px";
@@ -1501,17 +1531,20 @@ function demoIntro(){
 
   <h3 style="font-size:20px;margin-bottom:8px">Try these three</h3>
   <div class="chips" style="flex-direction:column;align-items:stretch;gap:10px">
+    <button class="chip" data-demo="533000" style="text-align:left">
+      <b>533000</b> — a real job the art room released. Jet Black sport fleece.</button>
     <button class="chip" data-demo="754205" style="text-align:left">
-      <b>754205</b> — art approved it. Green bar, two locations.</button>
+      <b>754205</b> — two print locations, so you get a tab for each.</button>
     <button class="chip" data-demo="392841" style="text-align:left">
-      <b>392841</b> — art <i>changed</i> it. Amber bar, and the steps are art's order, not the tool's.</button>
+      <b>392841</b> — art fixed the tool's order. What you see is art's order; the reason is under it.</button>
     <button class="chip" data-demo="680203" style="text-align:left">
-      <b>680203</b> — nobody released it yet. Grey bar, prediction only.</button>
+      <b>680203</b> — not released yet. The tool's suggestion only.</button>
   </div>
 
   <p class="muted" style="margin-top:18px">Then say <b>Ran it as shown</b> or
-  <b>Changed the order</b> — that answer follows the job into the press log,
-  so the setup time and the rotation land on the same line.</p>
+  <b>Changed the order</b>. On a change you can move a colour, or just tap
+  FLASH on the step you flashed after. That answer follows the job into the
+  press log, so the setup time and the rotation land on the same line.</p>
   <p class="tiny">PRESS LOG has the timers. NUMBERS is what the operator sees about their own day.
   The ? up top brings this back.</p>
 
@@ -1556,7 +1589,7 @@ function boot(){
     if(!S.operator) S.operator="Operator";
     S.kind="both"; applyKind();
     S.sheetUrl = S.sheetUrl || "https://script.google.com/demo/exec";
-    if(!recent.length){ recent=["754205","392841","680203"]; paintRecent(); }
+    if(!recent.length){ recent=["533000","754205","392841","680203"]; paintRecent(); }
     paintBar();
     const c=el("span","pill warn","DEMO"); c.style.marginLeft="10px";
     $("#opName").appendChild(c);
