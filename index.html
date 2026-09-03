@@ -443,6 +443,10 @@ const CHIPS = {
    ========================================================================== */
 const DEMO = /[?&]demo=1/.test(location.search) || window.PP_DEMO === true;
 if (DEMO) {
+  // The demo has no backend of either kind. Pin it to the /port path so the
+  // canned jobs resolve the same way whether the page is served over http by
+  // the Flask app or over https by GitHub Pages.
+  CFG.ROTATION_SOURCE = "port";
   const rot = (a) => a.map(x => ({ink:x[0], plate:x[1], mesh:x[2], rule:x[3],
                                   flash:!!x[4], mash:!!x[5], note:x[6]||undefined}));
   const JOBS = {
@@ -494,7 +498,10 @@ if (DEMO) {
   window.fetch = (url, opt) => {
     const u = String(url);
     const json = o => Promise.resolve({json: () => Promise.resolve(o), ok: true});
-    if (u.includes("/port/predict")) {
+    // both rotation paths — /port/predict (Flask) and ?fn=rotation (sheet) —
+    // must be answered, or the demo silently falls through to the catch-all
+    // below and the page reports a job with no readable rotation
+    if (u.includes("/port/predict") || u.includes("fn=rotation")) {
       const g = (u.match(/graphic=([^&]+)/) || [])[1] || "";
       return new Promise(r => setTimeout(() =>
         r(json(JOBS[decodeURIComponent(g)] ||
