@@ -143,6 +143,13 @@ label{display:block;font-size:17px;color:var(--dim);margin:0 0 6px;font-weight:6
      background:transparent;color:var(--faint);font-size:18px;font-weight:800;letter-spacing:.5px}
 .tgl.on{border-style:solid;background:var(--flash);border-color:var(--flash);color:#2a1d00}
 .tgl.on.m{background:#334155;border-color:#334155;color:#dbeafe}
+.tgl.on.c{background:#38bdf8;border-color:#38bdf8;color:#04283a}
+.step .mv button.rm{color:var(--bad);border-color:#5a2420}
+.editbtn{margin-top:10px;min-height:56px;padding:12px 18px;border-radius:10px;
+  border:2px solid var(--line);background:var(--panel2);color:var(--dim);
+  font-size:18px;font-weight:700;width:100%}
+.sizeline{font-size:22px;font-weight:700;color:var(--ink);margin-top:8px}
+.sizeline span{color:var(--dim);font-weight:600;font-size:19px}
 .flashbar{display:flex;align-items:center;gap:12px;background:var(--panel2);
   border:2px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;font-size:19px}
 .flashbar.over{border-color:var(--bad);background:#2a1210}
@@ -151,6 +158,7 @@ label{display:block;font-size:17px;color:var(--dim);margin:0 0 6px;font-weight:6
 .bdg{padding:4px 10px;border-radius:6px;font-size:15px;font-weight:800;letter-spacing:.5px}
 .bdg.f{background:var(--flash);color:#2a1d00}
 .bdg.m{background:#334155;color:#dbeafe}
+.bdg.c{background:#38bdf8;color:#04283a}
 .bdg.r{background:transparent;border:2px solid var(--line);color:var(--faint)}
 .conf{font-size:16px;font-weight:700}
 .conf.high{color:var(--good)} .conf.medium{color:var(--warn)} .conf.low{color:var(--bad)}
@@ -463,7 +471,7 @@ if (DEMO) {
     // 533000 is a real released job, carried in verbatim from the sheet —
     // the number the shop actually reaches for should not come back empty.
     "533000": {ok:true, graphic:"533000", locations:[
-      {label:"Front Center", size_in:8.5,
+      {label:"Front Center", size_in:8.5, dim:"Wide",
        source:"533000_01_533000_FrontCenter_extracted_SEP_01_placed.ai (VectorSEP Output — measured)",
        approved:{approved_by:"art", from:"predicted", ts:"today 3:01 PM",
          rotation:rot([["Underbase","Underbase",110,"R1",1,1,"base first"],
@@ -476,7 +484,7 @@ if (DEMO) {
                        ["CG 8","COOL GREY 8 C",230,"R5"],
                        ["WHT","WHT",155,"R7",0,0,"white last — highlight"]])}}]},
     "754205": {ok:true, graphic:"754205", locations:[
-      {label:"Front Center", size_in:11.0, source:"754205_01_31_SEP_01_placed.ai (VectorSEP Output — measured)",
+      {label:"Front Center", size_in:11.0, dim:"Tall", source:"754205_01_31_SEP_01_placed.ai (VectorSEP Output — measured)",
        approved:{approved_by:"art", from:"predicted", ts:"today 9:14 AM",
          rotation:rot([["Underbase","Underbase",155,"R1",1,0,"base first (R1) — no MASH: base ≥ 50% (R3)"],
                        ["CG 8","Wolf Grey (Cool Grey 8C)",230,"R5"],
@@ -489,13 +497,13 @@ if (DEMO) {
                        ["CG 8","Wolf Grey (Cool Grey 8C)",230,"R5"],
                        ["7714 C","Oceanic Teal (7714 C)",230,"R5"],
                        ["WHT","WHT",155,"R7",0,0,"white last — highlight (R7)"]])}},
-      {label:"Left Chest", size_in:3.5, source:"the proof only", approved:null,
+      {label:"Left Chest", size_in:3.5, dim:"Wide", source:"the proof only", approved:null,
        result:{job:{body:"Flint Black",fabric:"Franklin Jersey",method:"vintage",base_strength:100},
          flashes:1, signals_used:false, warnings:["base inferred from the dark body — the proof prints no underlay callout"],
          confidence:{R1:"high",R6:"medium"},
          rotation:rot([["Underbase","Underbase",155,"R1",1,1],["BLK","BLK",230,"R6"]])}}]},
     "392841": {ok:true, graphic:"392841", locations:[
-      {label:"Center Chest", size_in:11.0, source:"392841_01_placed.ai (VectorSEP Output — measured)",
+      {label:"Center Chest", size_in:11.0, dim:"Tall", source:"392841_01_placed.ai (VectorSEP Output — measured)",
        approved:{approved_by:"art", from:"corrected", ts:"today 8:02 AM",
          note:"Art ran: 1. BLK  |  2. Underbase  |  3. Red 187  |  4. AB White — black is the keyline, and black-last blew the 2-flash cap",
          rotation:rot([["BLK","BLK",230,"R1a",0,0,"dark first — keyline (R1a)"],
@@ -510,7 +518,7 @@ if (DEMO) {
                        ["289 C","Navy (289 C)",200,"R5"],
                        ["BLK","BLK",230,"R6",0,0,"black last (R6)"]])}}]},
     "680203": {ok:true, graphic:"680203", locations:[
-      {label:"(single location)", size_in:9.0, source:"the proof only", approved:null,
+      {label:"(single location)", size_in:9.0, dim:"Wide", source:"the proof only", approved:null,
        result:{job:{body:"White Wash",fabric:"Franklin Jersey",method:"Vintage Print",base_strength:0},
          flashes:0, signals_used:false,
          warnings:["No-UB blank (R10) — the spec'd base was struck"],
@@ -1044,8 +1052,17 @@ function paintRotation(){
     '<div class="muted" style="margin-top:6px">'+esc(J.body||"?")+' · '+esc(J.fabric||"?")+
     ' · '+esc(J.method||"?")+'</div>'+
     '<div class="muted" style="margin-top:4px">Base '+esc(J.base_strength)+
-    '% · '+esc(R.flashes)+' flash'+(R.flashes===1?"":"es")+
-    (loc.size_in? ' · '+esc(loc.size_in)+'"':"")+'</div>'+
+    '% · '+esc(R.flashes)+' flash'+(R.flashes===1?"":"es")+'</div>'+
+    /* The proof states one dimension and which way it runs. On a "Wide"
+       proof that number IS the width, which is what picks the sleeve board;
+       on a "Tall" proof it is the height and the proof does not state a
+       width. Say which it is rather than printing a bare number. */
+    (loc.size_in
+      ? '<div class="sizeline">'+esc(loc.size_in)+'"'+
+        (String(loc.dim||"").toLowerCase()==="wide" ? ' wide' : '')+
+        (String(loc.dim||"").toLowerCase()==="tall"
+          ? ' tall<span> — proof gives no width</span>' : '')+'</div>'
+      : '')+
     '<div class="tiny" style="margin-top:8px">Source: '+esc(loc.source||"proof")+'</div>';
   out.appendChild(hd);
 
@@ -1094,8 +1111,12 @@ function paintRotation(){
     if(s.ink && s.plate && s.ink!==s.plate) sub.push(s.ink);
     mid.appendChild(el("div","sub", sub.join(" · ")));
     const bg=el("div","badges");
-    if(s.flash) bg.appendChild(el("span","bdg f","FLASH"));
-    if(s.mash)  bg.appendChild(el("span","bdg m","MASH"));
+    // while correcting, the toggles below already show this state
+    if(!ORDERED){
+      if(s.flash) bg.appendChild(el("span","bdg f","FLASH"));
+      if(s.mash)  bg.appendChild(el("span","bdg m","MASH"));
+      if(s.cool)  bg.appendChild(el("span","bdg c","COOL"));
+    }
     // Confidence shows only while a rotation is unreleased. Once art has
     // signed off, their call stands and the tool's certainty is moot.
     /* What the tool is unsure about is where the step sits in the sequence,
@@ -1110,16 +1131,22 @@ function paintRotation(){
     if(s.note) mid.appendChild(el("div","tiny", plain(s.note)));
     mid.appendChild(bg);
     if(ORDERED){
-      // A flash is a property of the step it follows, so toggling it here
-      // moves, adds or removes a flash without disturbing the colour order —
-      // which is what most floor corrections actually are.
+      /* FLASH, MASH and COOL belong to the step they follow, so toggling one
+         here adds, removes or moves it without disturbing the colour order.
+         COOL marks a head left open to cool — Jedd's ask, because a newer
+         operator running a second flash without an open head after it is a
+         scorch waiting to happen, and a button makes that visible. */
       const ctl=el("div","ctl");
-      const f=el("button","tgl"+(s.flash?" on":""),"FLASH");
-      f.onclick=()=>{s.flash=!s.flash;paintRotation();};
-      const m=el("button","tgl m"+(s.mash?" on":""),"MASH");
-      m.onclick=()=>{s.mash=!s.mash;paintRotation();};
-      ctl.appendChild(f); ctl.appendChild(m);
+      [["FLASH","flash",""],["MASH","mash","m"],["COOL","cool","c"]]
+        .forEach(([label,key,cls])=>{
+          const t=el("button","tgl "+cls+(s[key]?" on":""),label);
+          t.onclick=()=>{s[key]=!s[key];paintRotation();};
+          ctl.appendChild(t);
+        });
       mid.appendChild(ctl);
+      const ed=el("button","editbtn","Change ink or mesh");
+      ed.onclick=()=>editStep(s,i);
+      mid.appendChild(ed);
     }
     d.appendChild(mid);
     if(ORDERED){
@@ -1128,7 +1155,13 @@ function paintRotation(){
       up.disabled=i===0; dn.disabled=i===list.length-1;
       up.onclick=()=>{const a=ORDERED;[a[i-1],a[i]]=[a[i],a[i-1]];paintRotation();};
       dn.onclick=()=>{const a=ORDERED;[a[i+1],a[i]]=[a[i],a[i+1]];paintRotation();};
-      mv.appendChild(up);mv.appendChild(dn);d.appendChild(mv);
+      const rm=el("button","rm","✕"); rm.title="remove this screen";
+      rm.disabled=list.length<=1;
+      rm.onclick=()=>{
+        if(!confirm("Remove "+(s.plate||s.ink||"this screen")+"?")) return;
+        ORDERED.splice(i,1); paintRotation();
+      };
+      mv.appendChild(up);mv.appendChild(dn);mv.appendChild(rm);d.appendChild(mv);
     }
     out.appendChild(d);
   });
@@ -1145,11 +1178,27 @@ function paintRotation(){
     const a=el("button","btn good lg","✓ Ran it as shown"); a.style.marginTop="8px";
     a.onclick=()=>sendFeedback(true,"","");
     const b=el("button","btn lg","Changed the order"); b.style.marginTop="12px";
-    b.onclick=()=>{ORDERED=stepsOf(loc).map(x=>Object.assign({},x));paintRotation();};
+    b.onclick=()=>{
+      ORDERED=stepsOf(loc).map(x=>{
+        const c=Object.assign({},x);
+        c._was = x.plate||x.ink||"";   // for telling a rename from a swap
+        c._wasMarks = marksOf(x);
+        return c;
+      });
+      paintRotation();
+    };
     out.appendChild(a); out.appendChild(b);
   } else {
+    const add=el("button","btn","+ Add a screen"); add.style.marginTop="4px";
+    add.onclick=()=>{
+      ORDERED.push({ink:"",plate:"",mesh:null,flash:false,mash:false,cool:false});
+      paintRotation();
+      editStep(ORDERED[ORDERED.length-1], ORDERED.length-1);
+    };
+    out.appendChild(add);
     const p=el("div","muted",
-      "Put it in the order you actually ran. Tap FLASH on the step you flashed after.");
+      "Put it in the order you actually ran. Tap FLASH, MASH or COOL on the step "+
+      "it follows. Change an ink, add a screen, or remove one.");
     p.style.margin="14px 0 8px"; out.appendChild(p);
     const done=el("button","btn primary lg","Save what I ran"); done.onclick=askReason;
     const cx=el("button","btn ghost","Cancel"); cx.style.marginTop="12px";
@@ -1157,21 +1206,72 @@ function paintRotation(){
     out.appendChild(done); out.appendChild(cx);
   }
 }
+/* Ink swaps happen before a run and screens get added to a job after the
+   proof was cut. Both were unsayable — the corrector could only resequence.
+   One editor covers the ink/PMS label and the mesh; add and remove live on
+   the step card. */
+function editStep(s,i){
+  modal(`<h3>Screen ${i+1}</h3>
+    <div class="field"><label>Ink / PMS</label>
+      <input id="es_ink" value="${esc(s.plate||s.ink||"")}" placeholder="e.g. 186 C, WHT, Underbase"></div>
+    <div class="field"><label>Mesh</label><div class="mesh" id="es_mesh"></div></div>
+    <button class="btn primary lg" id="es_ok">Save</button>
+    <button class="btn ghost" id="es_x" style="margin-top:12px">Cancel</button>`);
+  let mesh = s.mesh ? String(s.mesh) : null;
+  const h=$("#es_mesh");
+  CHIPS.mesh.forEach(v=>{
+    const b=el("button",mesh===v?"on":null,v);
+    b.onclick=()=>{mesh = (mesh===v? null : v);
+      $$("#es_mesh button").forEach(x=>x.classList.toggle("on",x.textContent===mesh));};
+    h.appendChild(b);
+  });
+  $("#es_x").onclick=()=>{
+    // backing out of a screen that was added and never named removes it
+    if(!(s.plate||s.ink)) { const k=ORDERED.indexOf(s); if(k>-1) ORDERED.splice(k,1); }
+    closeModal(); paintRotation();
+  };
+  $("#es_ok").onclick=()=>{
+    const v=$("#es_ink").value.trim();
+    if(!v){toast("The screen needs an ink name","bad");return;}
+    // every screen runs at some mesh, and tapping the selected chip clears it
+    // — so saving without one is almost always a slip, not an intent
+    if(!mesh){toast("Pick a mesh count","bad");return;}
+    s.plate=v; s.ink=v; s.mesh = Number(mesh);
+    closeModal(); paintRotation();
+  };
+}
+
 function correctedText(steps){
   return steps.map((s,i)=>(i+1)+". "+(s.plate||s.ink)+
-    (s.flash?"  *FLASH":"")+(s.mash?"  +MASH":"")).join("  |  ");
+    (s.mesh?" ["+s.mesh+"]":"")+
+    (s.flash?"  *FLASH":"")+(s.mash?"  +MASH":"")+(s.cool?"  ~COOL":"")).join("  |  ");
 }
 /* Was this a real sequencing disagreement, or only a flash call? Worth
    separating: a floor that keeps adding a flash after the same colour is
    telling you something different from a floor that keeps resequencing. */
+const marksOf = s => (s.flash?"F":"")+(s.mash?"M":"")+(s.cool?"C":"");
 function whatChanged(loc){
   const was=stepsOf(loc), now=ORDERED||[];
-  const names=a=>a.map(s=>s.plate||s.ink).join("|");
-  const marks=a=>{const m={};a.forEach(s=>{
-    m[s.plate||s.ink]=(s.flash?"F":"")+(s.mash?"M":"");}); return JSON.stringify(m);};
-  const order = names(was)!==names(now);
-  const flash = marks(was)!==marks(now);
-  return order&&flash ? "order+flash" : order ? "order" : flash ? "flash" : "none";
+  const kinds=[];
+  const survivors=now.filter(s=>s._was);
+
+  // each copied step carries _was (its original name), so an ink swap is told
+  // apart from a removal plus an addition
+  if(now.some(s=>!s._was) || survivors.length!==was.length) kinds.push("screens");
+
+  const survNames=survivors.map(s=>s._was);
+  const expected=was.map(s=>s.plate||s.ink).filter(n=>survNames.indexOf(n)>-1);
+  if(survNames.join("|")!==expected.join("|")) kinds.push("order");
+
+  if(now.some(s=>s._was && (s.plate||s.ink)!==s._was)) kinds.push("ink");
+  // report the marks separately — "they keep adding a COOL" and "they keep
+  // adding a FLASH" are different findings about the press
+  [["flash","F"],["mash","M"],["cool","C"]].forEach(([k,ch])=>{
+    if(now.some(s=>s._was && !!s[k] !== ((s._wasMarks||"").indexOf(ch)>-1)))
+      kinds.push(k);
+  });
+
+  return kinds.length ? kinds.join("+") : "none";
 }
 const REASONS=["Trapping","Keyline / registration","Flash budget","Bleeder color",
                "Base too heavy","Customer / art call","Press setup","Other"];
@@ -1206,18 +1306,34 @@ async function sendFeedback(agree,reason,corrected,kind){
   const body={
     graphic:ROT.graphic, agree, reason, corrected,
     predicted: stepsOf(loc).map(s=>s.plate||s.ink),
-    rotation: (ORDERED||stepsOf(loc)),
+    rotation: (ORDERED||stepsOf(loc)).map(s=>{
+      const c=Object.assign({},s); delete c._was; delete c._wasMarks; return c;
+    }),
     job: R.job||{}, source: loc.source||"", signals_used: !!R.signals_used
   };
   /* On a GitHub Pages tablet there is no /port/feedback to call — the
      pipeline is unreachable from here. The answer rides on the press-log row
      instead, which is the better home for it anyway: the floor's decision and
      the setup minutes it cost end up on the same line. */
+  /* Adding or removing a screen changes the divisor for min/screen. If the
+     count does not follow the correction, every setup number on this job is
+     quietly wrong — so the press log's screen count is re-synced here. */
+  const ranCount = (ORDERED||stepsOf(loc)).length;
+  const syncCount = ()=>{
+    if(!PORTLINK) return;
+    PORTLINK.colors = ranCount;
+    const n=$("#p_colors");
+    if(n && String(n.value).trim()!==String(ranCount)){
+      n.value=String(ranCount); paintRate(); save();
+    }
+  };
+
   if(rotationSource()==="sheet"){
     PORTLINK && Object.assign(PORTLINK,{
       decision: agree?"agree":"override", reason,
       changeType: agree?"":(kind||""),
       ran: corrected || PORTLINK.predicted });
+    syncCount();
     ORDERED=null; paintLink(); paintRotation(); save();
     toast(agree ? "Saved with this job" : "Override saved with this job","good");
     return;
@@ -1236,6 +1352,7 @@ async function sendFeedback(agree,reason,corrected,kind){
         PORTLINK.changeType = agree ? "" : (kind||"");
         PORTLINK.ran = corrected || PORTLINK.predicted;
       }
+      syncCount();
       ORDERED=null; paintLink(); paintRotation(); save();
       toast(agree?"Logged — ran as shown":"Logged — override saved","good"); }
     else { setSync("err"); toast("Not saved: "+(d.message||"error"),"bad"); }
