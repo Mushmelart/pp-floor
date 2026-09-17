@@ -42,7 +42,10 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
   padding:14px 18px; background:var(--panel); border-bottom:2px solid var(--line);
 }
 #bar .st{font-weight:700; font-size:24px; letter-spacing:.5px}
-#bar .op{color:var(--dim); font-size:19px}
+#bar .op{color:var(--dim); font-size:19px; background:none; border:none;
+  padding:8px 10px; border-radius:8px; font-weight:600}
+#bar .op:active{background:var(--panel2)}
+#bar .op::after{content:" ▾"; color:var(--faint); font-size:15px}
 #bar .sp{flex:1}
 #clock{font-variant-numeric:tabular-nums; color:var(--dim); font-size:19px}
 .dot{width:14px;height:14px;border-radius:50%;background:var(--faint);flex:0 0 auto}
@@ -262,7 +265,7 @@ label{display:block;font-size:17px;color:var(--dim);margin:0 0 6px;font-weight:6
 
 <header id="bar">
   <span class="st" id="stName">PRESS —</span>
-  <span class="op" id="opName">no operator</span>
+  <button class="op" id="opName">no operator</button>
   <button id="jobChip" hidden></button>
   <span class="sp"></span>
   <span id="clock">--:--</span>
@@ -450,7 +453,8 @@ const K = {
   CHECKIN_AFTER_MIN: 45,             // still-working? prompt after this much running
   CHECKIN_REPEAT_MIN: 30,            // and again this often
   AUTOSAVE_MS: 3000,
-  RECENT_JOBS: 6
+  RECENT_JOBS: 6,
+  SHIFT_HANDOVER_H: 10   // idle this long and the tablet asks who's on it
 };
 const CHIPS = {
   act:   ["Setup","Print","Sample","Reclaim change","Ink mix","Pallet change","Cleanup","Training"],
@@ -583,7 +587,14 @@ const S = {
   sheetUrl: localStorage.getItem("pp_sheet_url") || CFG.SHEET_URL,
   token: localStorage.getItem("pp_sheet_token") || CFG.SHEET_TOKEN,
   // which station this tablet is bolted to — decides which tabs it shows
-  kind: localStorage.getItem("pp_kind") || "press"   // press | screen | both
+  kind: localStorage.getItem("pp_kind") || "press",  // press | screen | both
+  /* Nobody configures a crew list. The tablet remembers the names and the
+     stations people actually type, and offers them as buttons next time, so
+     it is typing once and tapping forever after. */
+  names: (function(){ try{ return JSON.parse(localStorage.getItem("pp_names")||"[]"); }
+                      catch(e){ return []; } })(),
+  stations: (function(){ try{ return JSON.parse(localStorage.getItem("pp_stations")||"[]"); }
+                         catch(e){ return []; } })()
 };
 /* A press tablet has no business showing a screen-room log, and the dark room
    has no business showing a press rotation. Setting the kind per tablet also
@@ -632,6 +643,73 @@ function paintBar(){
   $("#opName").textContent = S.operator || "no operator";
   $("#k_pressHdr").textContent = (S.station||"This press") + " vs target";
 }
+/* A tablet that already knows its backend needs one thing from the person
+   picking it up: their name. Opening the full settings screen at that moment
+   put an endpoint URL and a token in front of a press operator, which is
+   neither their business nor their problem. */
+/* WHO IS ON, AND WHERE.
+   One tablet gets carried around and shared. So the operator says who they
+   are and which station they are at, and the tablet remembers both for next
+   time — the lists build themselves out of use. Nothing to set up, nothing
+   to maintain, and the data lands under the right name and the right press.
+
+   SHIFT_HANDOVER_H covers the case nobody remembers: a tablet left on
+   overnight would file the next shift's jobs under whoever last touched it.
+   After that long idle it asks again, and that one cannot be skipped. */
+function startShift(force){
+  const row=(list,cur,key)=>(list||[]).map(v=>
+    `<button class="chip${v===cur?" on":""}" data-${key}="${esc(v)}">${esc(v)}</button>`).join("");
+  modal(`<h3>Who's on, and where?</h3>
+    <div class="field"><label>You</label>
+      ${S.names.length?`<div class="chips" id="ss_names" style="margin-bottom:12px">${row(S.names,S.operator,"who")}</div>`:""}
+      <input id="ss_name" value="${esc(S.operator)}" placeholder="your name" autocomplete="off"></div>
+    <div class="field"><label>Station</label>
+      ${S.stations.length?`<div class="chips" id="ss_stations" style="margin-bottom:12px">${row(S.stations,S.station,"st")}</div>`:""}
+      <input id="ss_station" value="${esc(S.station)}" placeholder="Press 1, Press 2, Dark room…" autocomplete="off"></div>
+    <div class="field"><label>What is it</label>
+      <div class="chips" id="ss_kind">
+        <button class="chip${S.kind!=="screen"?" on":""}" data-kind="press">A press</button>
+        <button class="chip${S.kind==="screen"?" on":""}" data-kind="screen">Screen room</button>
+      </div></div>
+    <button class="btn primary lg" id="ss_go" style="margin-top:8px">Start</button>
+    ${force?"":`<button class="btn ghost" id="ss_x" style="margin-top:12px">Cancel</button>`}`);
+
+  let kind=S.kind||"press";
+  $$("#ss_names .chip").forEach(b=>b.onclick=()=>{ $("#ss_name").value=b.dataset.who;
+    $$("#ss_names .chip").forEach(x=>x.classList.toggle("on",x===b)); });
+  $$("#ss_stations .chip").forEach(b=>b.onclick=()=>{ $("#ss_station").value=b.dataset.st;
+    $$("#ss_stations .chip").forEach(x=>x.classList.toggle("on",x===b)); });
+  $$("#ss_kind .chip").forEach(b=>b.onclick=()=>{ kind=b.dataset.kind;
+    $$("#ss_kind .chip").forEach(x=>x.classList.toggle("on",x===b)); });
+
+  $("#ss_go").onclick=()=>{
+    const nm=$("#ss_name").value.trim(), st=$("#ss_station").value.trim();
+    if(!nm){toast("Your name — it's what your numbers are filed under","bad");return;}
+    if(!st){toast("Which station are you at?","bad");return;}
+    S.operator=nm; S.station=st; S.kind=kind;
+    const add=(list,v)=>list.indexOf(v)<0 ? list.concat([v]).slice(-12) : list;
+    S.names=add(S.names,nm); S.stations=add(S.stations,st);
+    try{
+      localStorage.setItem("pp_operator",nm);
+      localStorage.setItem("pp_station",st);
+      localStorage.setItem("pp_kind",kind);
+      localStorage.setItem("pp_names",JSON.stringify(S.names));
+      localStorage.setItem("pp_stations",JSON.stringify(S.stations));
+      localStorage.setItem("pp_last_active",String(now()));
+    }catch(e){}
+    paintBar(); applyKind(); closeModal();
+  };
+  const x=$("#ss_x"); if(x) x.onclick=closeModal;
+}
+function touchActive(){ try{ localStorage.setItem("pp_last_active",String(now())); }catch(e){} }
+function shiftLapsed(){
+  try{
+    const t=Number(localStorage.getItem("pp_last_active")||0);
+    return t>0 && (now()-t) > K.SHIFT_HANDOVER_H*3600000;
+  }catch(e){ return false; }
+}
+
+
 function openCfg(){
   const kindBtn=(v,t)=>`<button class="chip${S.kind===v?" on":""}" data-kind="${v}">${t}</button>`;
   modal(`<h3>This tablet</h3>
@@ -1527,6 +1605,7 @@ $("#p_submit").onclick = async ()=>{
     portRan:       PORTLINK ? PORTLINK.ran : "",
     portFlashes:   PORTLINK ? PORTLINK.flashes : ""
   });
+  touchActive();
   if(ok!==false) toast("Job submitted","good");
   clearPress();
 };
@@ -1650,6 +1729,7 @@ $("#d_submit").onclick = async ()=>{
     });
   }
   const ok=await post(p);
+  touchActive();
   if(ok!==false) toast("Submitted","good");
   clearDark();
 };
@@ -1811,7 +1891,11 @@ function boot(){
     return;
   }
   if(fromLink) toast("Tablet set up — "+(S.station||"press"),"good");
-  if(!S.station||!S.operator) openCfg();
+  // a configured tablet only ever asks for the name; ⚙ stays for setup
+  $("#opName").onclick=()=>startShift(false);
+  if(!S.sheetUrl) openCfg();
+  else if(!S.operator || !S.station || shiftLapsed()) startShift(true);
+  else touchActive();
 }
 boot();
 </script>
