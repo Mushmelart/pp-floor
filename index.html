@@ -454,6 +454,7 @@ const K = {
   CHECKIN_REPEAT_MIN: 30,            // and again this often
   AUTOSAVE_MS: 3000,
   RECENT_JOBS: 6,
+  LOOKUP_TIMEOUT_MS: 12000,   // give up on one try and use the saved copy
   SHIFT_HANDOVER_H: 10   // idle this long and the tablet asks who's on it
 };
 const CHIPS = {
@@ -1056,41 +1057,100 @@ function paintRecent(){
     h.appendChild(b);
   });
 }
-async function predict(g){
-  if(!g){toast("Enter a number","bad");return;}
-  setSync("busy"); $("#rotOut").innerHTML='<div class="card muted">Looking up '+esc(g)+'…</div>';
+/* Looking a job up has to survive a shop floor: a radio that drops for a
+   second, an Apps Script cold start, a tablet that just woke. Three rules,
+   learned the hard way —
+
+   1. NEVER clear a rotation that is already on screen. Losing the steps you
+      were reading because a request blipped is the worst thing this page can
+      do at a press. A failed lookup leaves what is there and says so.
+   2. Retry once before calling it a failure. Most of these are transient.
+   3. Keep the last rotations on the tablet. A job looked up before opens
+      with no connection at all, plainly marked as a saved copy. */
+const ROTCACHE_KEY="pp_rotcache", ROTCACHE_MAX=40;
+function rotCacheGet(g){
+  try{ return (JSON.parse(localStorage.getItem(ROTCACHE_KEY)||"{}"))[g]||null; }
+  catch(e){ return null; }
+}
+function rotCachePut(g,d){
   try{
-    const viaSheet = rotationSource()==="sheet";
-    const url = viaSheet
-      ? (S.sheetUrl||CFG.SHEET_URL)+"?fn=rotation&graphic="+encodeURIComponent(g)
-      : CFG.PORT_BASE+"/port/predict?graphic="+encodeURIComponent(g);
-    if(viaSheet && !(S.sheetUrl||CFG.SHEET_URL)){
-      setSync("err");
-      $("#rotOut").innerHTML='<div class="warnbox">This tablet has no backend set. Tap ⚙.</div>';
-      return;
-    }
-    const r = await fetch(url,{cache:"no-store"});
-    const d = await r.json();
-    if(!d.ok){ setSync("err");
-      $("#rotOut").innerHTML='<div class="warnbox">'+esc(d.message||"No rotation for that number.")+'</div>';
-      return; }
-    setSync("ok");
-    ROT = {graphic:d.graphic, locations:d.locations||[], activeIdx:0};
-    ORDERED = null;
-    recent = [g].concat(recent.filter(x=>x!==g)).slice(0,K.RECENT_JOBS);
-    $("#lookup").classList.add("mini");
-    $("#jobno").value = d.graphic || g;   // keep the collapsed bar truthful
-    setLink(); setJobNo(d.graphic);
-    save(); paintRecent(); paintRotation();
-  }catch(e){
-    setSync("err");
-    $("#rotOut").innerHTML='<div class="warnbox">'+
-      (rotationSource()==="sheet"
-        ? "Can't reach the release list. Check this tablet's connection."
-        : "Can't reach the pipeline. Check shop wifi, then the app on the office machine.")+
-      '<br><span class="tiny">'+esc(e.message)+'</span></div>';
+    const c=JSON.parse(localStorage.getItem(ROTCACHE_KEY)||"{}");
+    c[g]={d, at:now()};
+    const keys=Object.keys(c).sort((a,b)=>(c[b].at||0)-(c[a].at||0)).slice(0,ROTCACHE_MAX);
+    const out={}; keys.forEach(k=>out[k]=c[k]);
+    localStorage.setItem(ROTCACHE_KEY, JSON.stringify(out));
+  }catch(e){}
+}
+
+function showRotation(d,g,stale){
+  ROT = {graphic:d.graphic||g, locations:d.locations||[], activeIdx:0};
+  ORDERED = null;
+  recent = [g].concat(recent.filter(x=>x!==g)).slice(0,K.RECENT_JOBS);
+  $("#lookup").classList.add("mini");
+  $("#jobno").value = d.graphic || g;
+  setLink(); setJobNo(d.graphic||g);
+  save(); paintRecent(); paintRotation();
+  if(stale){
+    const b=el("div","warnbox");
+    b.textContent="⚠ Saved copy on this tablet — couldn't reach the release list just now.";
+    $("#rotOut").insertBefore(b, $("#rotOut").firstChild);
   }
 }
+
+async function predict(g){
+  if(!g){toast("Enter a number","bad");return;}
+  const viaSheet = rotationSource()==="sheet";
+  const base = S.sheetUrl||CFG.SHEET_URL;
+  if(viaSheet && !base){
+    setSync("err");
+    $("#rotOut").innerHTML='<div class="warnbox">This tablet has no backend set. Tap ⚙.</div>';
+    return;
+  }
+  const url = viaSheet
+    ? base+"?fn=rotation&graphic="+encodeURIComponent(g)
+    : CFG.PORT_BASE+"/port/predict?graphic="+encodeURIComponent(g);
+
+  const showing = !!ROT;                       // something already on screen
+  setSync("busy");
+  if(!showing) $("#rotOut").innerHTML='<div class="card muted">Looking up '+esc(g)+'…</div>';
+  else toast("Looking up "+g+"…");
+
+  let lastErr=null;
+  for(let attempt=0; attempt<2; attempt++){
+    if(attempt) await new Promise(r=>setTimeout(r,900));
+    try{
+      /* A hung request is worse than a failed one — without a deadline the
+         tablet can sit on a spinner for minutes while the operator waits. */
+      const ac = (typeof AbortController!=="undefined") ? new AbortController() : null;
+      const killer = ac ? setTimeout(()=>ac.abort(), K.LOOKUP_TIMEOUT_MS) : null;
+      let r;
+      try { r = await fetch(url,{cache:"no-store", signal: ac?ac.signal:undefined}); }
+      finally { if(killer) clearTimeout(killer); }
+      const d = await r.json();
+      if(!d.ok){                                // reached it; it just has nothing
+        setSync("ok");
+        if(showing) toast(d.message||"No rotation for that number","bad");
+        else $("#rotOut").innerHTML='<div class="warnbox">'+
+               esc(d.message||"No rotation for that number.")+'</div>';
+        return;
+      }
+      setSync("ok"); rotCachePut(g,d); showRotation(d,g,false);
+      return;
+    }catch(e){ lastErr=e; }
+  }
+
+  // both tries failed — fall back to this tablet's own copy before complaining
+  setSync("err");
+  const cached = rotCacheGet(g);
+  if(cached && cached.d){ showRotation(cached.d,g,true); return; }
+  const msg = viaSheet
+    ? "Can't reach the release list right now."
+    : "Can't reach the pipeline. Check shop wifi, then the app on the office machine.";
+  if(showing){ toast(msg,"bad"); return; }      // keep what they were reading
+  $("#rotOut").innerHTML='<div class="warnbox">'+msg+
+    '<br><span class="tiny">Tried twice. '+esc((lastErr&&lastErr.message)||"")+'</span></div>';
+}
+
 function activeLoc(){return ROT && ROT.locations[ROT.activeIdx];}
 /* The released rotation wins over the raw prediction. When the art room
    approves in the dashboard it POSTs /port/approve, and /port/predict hands
