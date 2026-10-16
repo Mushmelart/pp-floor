@@ -1,0 +1,3569 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d1117">
+<title>PP Floor</title>
+<style>
+/* ==========================================================================
+   PP FLOOR — PrintPro press-side tablet
+   Target device: 11" Android, 1200 x 1920 portrait, Chrome, Add to Home Screen.
+   Design rules: nothing tappable under 64px. Body text never under 20px.
+   Dark ground (glare + ink). One thumb reaches the bottom nav.
+   ========================================================================== */
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c232c; --line:#2b3440;
+  --ink:#e9eef5; --dim:#93a1b3; --faint:#5d6b7d;
+  --accent:#4c9aff; --good:#3fb950; --warn:#e3a008; --bad:#f4564a;
+  --base:#8b5cf6; --white:#e9eef5; --black:#6e7681; --flash:#e3a008;
+  --tap:64px;
+  font-size:16px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg); color:var(--ink);
+  font:400 20px/1.4 -apple-system,"Segoe UI",Roboto,system-ui,sans-serif;
+  overscroll-behavior:none; user-select:none;
+  display:flex; flex-direction:column;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+input,textarea,select{
+  background:var(--panel2); border:2px solid var(--line); border-radius:10px;
+  padding:14px 16px; min-height:var(--tap); width:100%; user-select:text;
+}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+
+/* ---- top bar ---- */
+#bar{
+  display:flex; align-items:center; gap:12px; flex:0 0 auto;
+  padding:14px 18px; background:var(--panel); border-bottom:2px solid var(--line);
+}
+#bar .st{font-weight:700; font-size:24px; letter-spacing:.5px}
+#bar .op{color:var(--dim); font-size:19px; background:none; border:none;
+  padding:8px 10px; border-radius:8px; font-weight:600}
+#bar .op:active{background:var(--panel2)}
+#bar .op::after{content:" ▾"; color:var(--faint); font-size:15px}
+#bar .sp{flex:1}
+#clock{font-variant-numeric:tabular-nums; color:var(--dim); font-size:19px}
+.dot{width:14px;height:14px;border-radius:50%;background:var(--faint);flex:0 0 auto}
+.dot.ok{background:var(--good)} .dot.busy{background:var(--warn)} .dot.err{background:var(--bad)}
+#cfgbtn{background:none;border:none;padding:10px;font-size:24px;line-height:1}
+#helpbtn{background:var(--panel2);border:2px solid var(--line);border-radius:999px;
+  padding:8px 16px;font-size:17px;line-height:1;font-weight:700;color:var(--dim);
+  white-space:nowrap}
+#helpbtn:active{background:var(--line);color:var(--ink)}
+/* the job the tablet is on — entered once, carried everywhere */
+#jobChip{min-height:48px;padding:8px 18px;border-radius:999px;border:2px solid var(--accent);
+  background:rgba(76,154,255,.14);color:var(--accent);font-size:20px;font-weight:800;
+  letter-spacing:1px;font-variant-numeric:tabular-nums}
+#jobChip small{display:block;font-size:12px;font-weight:700;letter-spacing:1.5px;
+  color:var(--dim);line-height:1}
+
+/* ---- views ---- */
+main{flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:18px 18px 24px}
+.view{display:none} .view.on{display:block}
+/* The screen room runs this on a desktop, not a tablet. Left alone, a view
+   built for a 1200px-wide portrait tablet stretches to the full width of a
+   1080p monitor and turns a thumb-sized keypad into a metre of buttons. Cap
+   the press-side views at tablet width and centre them. The dashboard is a
+   grid built to use width, so it keeps the whole page. */
+#v-rot,#v-press,#v-dark,#v-num{max-width:860px;margin:0 auto}
+h2{font-size:26px;margin:0 0 14px;font-weight:700}
+h3{font-size:21px;margin:22px 0 10px;color:var(--dim);font-weight:600;
+   text-transform:uppercase;letter-spacing:1px}
+.card{background:var(--panel); border:2px solid var(--line); border-radius:14px;
+      padding:16px; margin-bottom:14px}
+.row{display:flex; gap:12px} .row>*{flex:1}
+label{display:block;font-size:17px;color:var(--dim);margin:0 0 6px;font-weight:600}
+.field{margin-bottom:14px}
+.muted{color:var(--dim);font-size:18px}
+.tiny{font-size:16px;color:var(--faint)}
+
+/* ---- buttons ---- */
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  min-height:var(--tap); padding:16px 20px; border-radius:12px;
+  border:2px solid var(--line); background:var(--panel2); color:var(--ink);
+  font-size:21px; font-weight:600; width:100%; cursor:pointer;
+}
+.btn:active{transform:scale(.985)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#04101f}
+.btn.good{background:var(--good);border-color:var(--good);color:#052b0f}
+.btn.bad{background:var(--bad);border-color:var(--bad);color:#2a0705}
+.btn.ghost{background:transparent}
+.btn.lg{min-height:96px;font-size:26px}
+.btn[disabled]{opacity:.4}
+
+/* ---- manager dashboard ----------------------------------------------------
+   The press tabs are built for a thumb at arm's length on a moving floor.
+   This one is built for someone standing still reading it, so the type is
+   smaller, the cards are denser, and two of them sit side by side at 1200px.
+   Everything is still ≥16px and still dark — same glare, same room. */
+#v-dash{padding-bottom:48px}
+.dashsub{color:var(--dim);font-size:17px;line-height:1.4;margin:-6px 0 6px}
+.dashwhen{color:var(--faint);font-size:15px;margin:0 0 20px}
+.dashwhen b{color:var(--dim);font-weight:700}
+
+.kpirow{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:14px;margin-bottom:22px}
+.kcard{background:var(--panel);border:1px solid var(--line);
+  border-left:5px solid var(--accent);border-radius:12px;padding:15px 18px 17px}
+.kcard.g{border-left-color:var(--good)}
+.kcard.w{border-left-color:var(--warn)}
+.kcard.n{border-left-color:var(--faint)}
+.kcard .kl{font-size:15px;color:var(--dim);letter-spacing:.3px}
+.kcard .kv{font-size:50px;font-weight:800;line-height:1.05;margin:4px 0 6px;
+  font-variant-numeric:tabular-nums}
+.kcard .kf{font-size:14px;color:var(--faint);line-height:1.4}
+.kf .up{color:var(--good);font-weight:700}
+.kf .down{color:var(--bad);font-weight:700}
+
+.dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(500px,1fr));gap:16px}
+.ccard{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:16px 20px 18px;min-width:0}
+.ccard.wide{grid-column:1/-1}
+.ch{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ch h4{margin:0;font-size:21px;font-weight:800;flex:1;min-width:180px}
+.ch .chip{min-height:38px;padding:6px 14px;font-size:15px;border-radius:999px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:0 0 auto}
+.seg button{background:var(--panel2);border:none;color:var(--dim);
+  padding:7px 13px;font-size:15px;font-weight:700;min-height:0;width:auto;border-radius:0}
+.seg button.on{background:var(--accent);color:#04101f}
+.csub{color:var(--dim);font-size:16px;line-height:1.35;margin:9px 0 14px}
+.cnote{color:var(--faint);font-size:14px;line-height:1.45;margin:12px 0 0}
+.chart svg{width:100%;height:auto;display:block;overflow:visible}
+
+/* delay bar race */
+.race{display:flex;flex-direction:column;gap:7px;margin-top:4px}
+.rrow{display:grid;grid-template-columns:26px minmax(130px,1.1fr) 2fr 40px 46px;
+  align-items:center;gap:10px;font-size:17px}
+.rrow .rk{color:var(--faint);font-size:14px;text-align:right;font-variant-numeric:tabular-nums}
+.rrow .rn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rrow .rb{background:var(--panel2);border-radius:999px;height:13px;overflow:hidden}
+.rrow .rb i{display:block;height:100%;background:var(--warn);border-radius:999px;
+  transition:width .35s ease}
+.rrow .rc{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
+.rrow .rd{text-align:right;font-size:14px;font-weight:700;color:var(--faint)}
+.rrow .rd.u{color:var(--good)} .rrow .rd.d{color:var(--bad)} .rrow .rd.n{color:var(--accent)}
+.scrub{display:flex;align-items:center;gap:12px;margin:14px 0 6px;flex-wrap:wrap}
+.scrub .wk{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums}
+.scrub .pc{color:var(--warn);font-size:16px;font-weight:700}
+.scrub input[type=range]{flex:1;min-width:160px;min-height:0;padding:0;border:none;
+  background:none;accent-color:var(--accent)}
+.scrub button{width:auto;min-height:44px;padding:8px 14px;background:var(--panel2);
+  border:2px solid var(--line);border-radius:10px;font-size:17px;font-weight:700}
+.topdelay{margin-top:16px;background:var(--panel2);border-left:4px solid var(--warn);
+  border-radius:10px;padding:14px 16px;max-width:460px}
+.topdelay .tl{font-size:13px;letter-spacing:1.4px;color:var(--faint);font-weight:700}
+.topdelay .tn{font-size:26px;font-weight:800;margin:4px 0 2px}
+.topdelay .tm{font-size:15px;color:var(--dim)}
+
+.bigpct{font-size:62px;font-weight:800;line-height:1;margin:6px 0 10px;
+  font-variant-numeric:tabular-nums}
+.flag{display:inline-block;background:rgba(227,160,8,.16);color:var(--warn);
+  border:1px solid rgba(227,160,8,.4);border-radius:999px;padding:5px 12px;
+  font-size:14px;font-weight:700;vertical-align:middle;margin-left:10px}
+.logrow{display:grid;grid-template-columns:minmax(110px,1fr) 1.6fr 118px;
+  align-items:center;gap:11px;font-size:17px;margin-bottom:11px}
+.logrow .lb{background:var(--panel2);border-radius:999px;height:12px;overflow:hidden}
+.logrow .lb i{display:block;height:100%;border-radius:999px}
+.logrow .lv{text-align:right;color:var(--dim);font-size:15px;font-variant-numeric:tabular-nums}
+.dashfoot{color:var(--faint);font-size:14px;line-height:1.55;margin-top:22px;
+  padding-top:18px;border-top:1px solid var(--line)}
+@media (max-width:720px){
+  .dgrid{grid-template-columns:1fr}
+  .rrow{grid-template-columns:22px minmax(100px,1fr) 1.4fr 36px 42px;font-size:16px}
+}
+
+/* ---- practice banner ----
+   An operator who thinks they are practising while logging a real job, or
+   logging a real job while practising, is the worst outcome this mode can
+   produce. So it is a full-width bar in the accent colour, on every tab,
+   with the way out built into it. */
+#practicebar{
+  flex:0 0 auto; display:flex; align-items:center; gap:14px;
+  background:var(--accent); color:#04101f;
+  padding:12px 16px; font-size:20px; font-weight:800; letter-spacing:.4px;
+}
+#practicebar[hidden]{display:none}
+#practicebar .pbt{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+#practicebar .pbt b{font-weight:800}
+#practicebar .pbt i{font-style:normal;font-weight:700;opacity:.78;font-size:18px}
+#practicebar button{
+  width:auto; min-height:44px; padding:8px 18px; border-radius:10px;
+  border:2px solid rgba(4,16,31,.35); background:rgba(255,255,255,.22);
+  color:#04101f; font-size:17px; font-weight:800;
+}
+#practicebar button:active{background:rgba(255,255,255,.4)}
+/* the checklist bar — orange, under the blue one, the whole strip is the
+   button because a thumb on a moving floor should not have to find a chip */
+#checklistbar{
+  flex:0 0 auto; display:flex; align-items:center; gap:14px; width:100%;
+  background:var(--warn); color:#2a1d00; border:none; border-radius:0;
+  padding:11px 16px; font-size:20px; font-weight:800; letter-spacing:.3px;
+  text-align:left;
+}
+#checklistbar[hidden]{display:none}
+#checklistbar:active{filter:brightness(.92)}
+#checklistbar .cb_l{flex:1}
+#checklistbar .cb_n{font-variant-numeric:tabular-nums;
+  background:rgba(42,29,0,.18); border-radius:999px; padding:4px 14px; font-size:19px}
+#checklistbar.all{background:var(--good);color:#04240f}
+#checklistbar.all .cb_n{background:rgba(4,36,15,.2)}
+#checklistbar .cb_c{font-size:26px;line-height:1;opacity:.6}
+/* the practice checklist */
+.tasks{list-style:none;margin:0;padding:0}
+.tasks li{display:flex;gap:14px;align-items:flex-start;padding:11px 0;
+  border-bottom:1px solid var(--line);font-size:19px}
+.tasks li:last-child{border-bottom:none}
+.tasks .bx{flex:0 0 auto;width:32px;height:32px;border-radius:9px;border:2px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800;
+  color:var(--faint);background:var(--panel2)}
+.tasks li.done .bx{background:var(--good);border-color:var(--good);color:#04101f}
+.tasks li.done .lb{color:var(--dim);text-decoration:line-through}
+.tasks .lb{flex:1;line-height:1.3}
+
+/* ---- the five steps, in the help card ---- */
+.steps{counter-reset:s;margin:0 0 4px;padding:0;list-style:none}
+.steps li{counter-increment:s;position:relative;padding:0 0 16px 52px}
+.steps li::before{content:counter(s);position:absolute;left:0;top:-2px;
+  width:36px;height:36px;border-radius:50%;background:var(--accent);color:#04101f;
+  font-weight:800;font-size:19px;display:flex;align-items:center;justify-content:center}
+.steps li b{display:block;font-size:22px;margin-bottom:3px}
+.steps li span{color:var(--dim);font-size:18px;line-height:1.35}
+
+/* ---- chips ---- */
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{
+  min-height:var(--tap); padding:14px 20px; border-radius:999px;
+  border:2px solid var(--line); background:var(--panel2); color:var(--dim);
+  font-size:19px; font-weight:600; cursor:pointer;
+}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#04101f}
+.chip.on.warnc{background:var(--warn);border-color:var(--warn);color:#2a1d00}
+.chip.on.badc{background:var(--bad);border-color:var(--bad);color:#2a0705}
+
+/* ---- timers ---- */
+.timer{
+  display:flex;align-items:center;gap:16px;background:var(--panel2);
+  border:2px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px
+}
+.timer.run{border-color:var(--good);background:#12251a}
+.timer.over{border-color:var(--bad);background:#2a1210}
+.timer .nm{flex:1;font-size:22px;font-weight:700}
+.timer .tv{font-variant-numeric:tabular-nums;font-size:38px;font-weight:700;
+           letter-spacing:1px;min-width:150px;text-align:right}
+.timer .go{min-height:var(--tap);min-width:130px;border-radius:12px;border:2px solid var(--line);
+           background:var(--panel);font-size:20px;font-weight:700;color:var(--ink)}
+.timer.run .go{background:var(--good);border-color:var(--good);color:#052b0f}
+.pill{display:inline-block;padding:4px 12px;border-radius:999px;font-size:15px;
+      font-weight:700;letter-spacing:.5px}
+.pill.warn{background:var(--warn);color:#2a1d00}
+.pill.bad{background:var(--bad);color:#2a0705}
+
+/* ---- keypad ---- */
+#kp{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+#kp button{min-height:80px;font-size:32px;font-weight:700;border-radius:12px;
+           border:2px solid var(--line);background:var(--panel2);color:var(--ink)}
+#jobno{font-size:42px;font-weight:700;text-align:center;letter-spacing:4px;
+       font-variant-numeric:tabular-nums;min-height:86px}
+
+/* ---- rotation steps ---- */
+.loctabs{display:flex;gap:10px;overflow-x:auto;margin-bottom:14px}
+.loctabs .chip{white-space:nowrap}
+.step{display:flex;align-items:center;gap:14px;background:var(--panel);
+      border:2px solid var(--line);border-left-width:10px;border-radius:12px;
+      padding:14px 16px;margin-bottom:10px}
+.step .pos{font-size:34px;font-weight:800;min-width:46px;text-align:center;color:var(--dim)}
+.step .mid{flex:1;min-width:0}
+.step .nm{font-size:25px;font-weight:700;line-height:1.15}
+.step .sub{font-size:17px;color:var(--dim);margin-top:4px}
+.step.base{border-left-color:var(--base)}
+.step.white{border-left-color:var(--white)}
+.step.black{border-left-color:var(--black)}
+.step.spot{border-left-color:var(--accent)}
+.step .mv{display:flex;flex-direction:column;gap:6px}
+.step .mv button{width:56px;height:44px;border-radius:8px;border:2px solid var(--line);
+                 background:var(--panel2);color:var(--ink);font-size:18px}
+/* flash / mash toggles, shown only while correcting a rotation */
+.ctl{display:flex;gap:10px;margin-top:10px}
+.tgl{min-height:56px;padding:12px 22px;border-radius:10px;border:2px dashed var(--line);
+     background:transparent;color:var(--faint);font-size:18px;font-weight:800;letter-spacing:.5px}
+.tgl.on{border-style:solid;background:var(--flash);border-color:var(--flash);color:#2a1d00}
+.tgl.on.m{background:#334155;border-color:#334155;color:#dbeafe}
+.tgl.on.c{background:#38bdf8;border-color:#38bdf8;color:#04283a}
+.step .mv button.rm{color:var(--bad);border-color:#5a2420}
+.editbtn{margin-top:10px;min-height:56px;padding:12px 18px;border-radius:10px;
+  border:2px solid var(--line);background:var(--panel2);color:var(--dim);
+  font-size:18px;font-weight:700;width:100%}
+.sizeline{font-size:22px;font-weight:700;color:var(--ink);margin-top:8px}
+.sizeline span{color:var(--dim);font-weight:600;font-size:19px}
+/* the art, beside the job facts — Jedd/Derek's ask. Checkerboard behind it so
+   a white-heavy graphic still reads on a dark screen. */
+.jobrow{display:flex;gap:16px;align-items:flex-start}
+.jobrow .facts{flex:1;min-width:0}
+.thumb{flex:0 0 auto;width:260px;height:260px;border-radius:12px;border:2px solid var(--line);
+  background:#e9eef5;
+  background-image:linear-gradient(45deg,#cbd5e1 25%,transparent 25%,transparent 75%,#cbd5e1 75%),
+                   linear-gradient(45deg,#cbd5e1 25%,transparent 25%,transparent 75%,#cbd5e1 75%);
+  background-size:22px 22px; background-position:0 0,11px 11px;
+  display:flex;align-items:center;justify-content:center;overflow:hidden}
+.thumb img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.thumb.none{background:var(--panel2);background-image:none;color:var(--faint);
+  font-size:15px;text-align:center;padding:10px;line-height:1.3}
+.flashbar{display:flex;align-items:center;gap:12px;background:var(--panel2);
+  border:2px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;font-size:19px}
+.flashbar.over{border-color:var(--bad);background:#2a1210}
+.flashbar b{font-size:22px}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.bdg{padding:4px 10px;border-radius:6px;font-size:15px;font-weight:800;letter-spacing:.5px}
+.bdg.f{background:var(--flash);color:#2a1d00}
+.bdg.m{background:#334155;color:#dbeafe}
+.bdg.c{background:#38bdf8;color:#04283a}
+.bdg.r{background:transparent;border:2px solid var(--line);color:var(--faint)}
+.conf{font-size:16px;font-weight:700}
+.conf.high{color:var(--good)} .conf.medium{color:var(--warn)} .conf.low{color:var(--bad)}
+.warnbox{background:#2a2210;border:2px solid var(--warn);border-radius:12px;
+         padding:14px;margin-bottom:12px;font-size:18px}
+/* ---- screen room: multi-job tabs + one card per screen ---- */
+.jobtabs{display:flex;gap:10px;overflow-x:auto;margin-bottom:14px;padding-bottom:4px}
+.jobtabs button{min-height:var(--tap);padding:12px 22px;border-radius:12px;
+  border:2px solid var(--line);background:var(--panel2);color:var(--dim);
+  font-size:19px;font-weight:700;white-space:nowrap}
+.jobtabs button.on{background:var(--accent);border-color:var(--accent);color:#04101f}
+.jobtabs button.add{color:var(--accent);min-width:72px;font-size:26px}
+.scr{background:var(--panel);border:2px solid var(--line);border-radius:14px;
+     padding:14px 16px;margin-bottom:12px}
+.scr.re{border-color:var(--warn)}
+.scr .hd{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.scr .n{font-size:22px;font-weight:800;flex:1}
+.scr .n small{font-weight:600;color:var(--dim);font-size:17px;margin-left:8px}
+.scr .hd button{min-height:56px;padding:12px 18px;border-radius:10px;
+  border:2px solid var(--line);background:var(--panel2);color:var(--dim);
+  font-size:18px;font-weight:700}
+.scr .hd button.on{background:var(--warn);border-color:var(--warn);color:#2a1d00}
+.scr .hd button.del{width:60px;color:var(--faint);font-size:22px;padding:12px 0}
+.mesh{display:flex;gap:8px;flex-wrap:wrap}
+.mesh button{flex:1 0 auto;min-width:86px;min-height:var(--tap);border-radius:10px;
+  border:2px solid var(--line);background:var(--panel2);color:var(--dim);
+  font-size:20px;font-weight:700}
+.mesh button.on{background:var(--accent);border-color:var(--accent);color:#04101f}
+/* art-room release state */
+.relbar{border-radius:12px;padding:14px 16px;margin-bottom:12px;font-size:18px;
+        border:2px solid var(--line);line-height:1.4}
+.relbar b{font-size:20px;letter-spacing:.5px}
+.relbar.ok{border-color:var(--good);background:#12251a;color:#c9f2d4}
+.relbar.fixed{border-color:var(--warn);background:#2a2210;color:#f6e3b0}
+.relbar.none{border-color:var(--faint);background:var(--panel2);color:var(--dim)}
+/* the press log ↔ rotation link — one job, one row */
+.linkbar{border-radius:12px;padding:16px;margin-bottom:14px;border:2px solid var(--line);
+         background:var(--panel);display:flex;align-items:center;gap:14px}
+.linkbar.agreed{border-color:var(--good);background:#12251a}
+.linkbar.changed{border-color:var(--warn);background:#2a2210}
+.linkbar .t{flex:1;font-size:19px;line-height:1.35}
+.linkbar .t b{font-size:22px}
+.linkbar .x{width:56px;min-height:56px;border-radius:10px;border:2px solid var(--line);
+            background:var(--panel2);color:var(--dim);font-size:22px}
+
+/* ---- KPI ---- */
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.kpi{background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:18px}
+.kpi .v{font-size:44px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.kpi .l{font-size:17px;color:var(--dim);margin-top:8px;font-weight:600}
+.kpi .d{font-size:17px;margin-top:6px;font-weight:700}
+.kpi .d.up{color:var(--good)} .kpi .d.down{color:var(--bad)}
+.bar{height:16px;border-radius:8px;background:var(--panel2);overflow:hidden;margin-top:12px}
+.bar>i{display:block;height:100%;background:var(--accent)}
+
+/* ---- bottom nav ---- */
+#tabs{flex:0 0 auto;display:flex;background:var(--panel);border-top:2px solid var(--line);
+      padding-bottom:env(safe-area-inset-bottom)}
+#tabs button[hidden]{display:none}
+#tabs button{flex:1;min-height:88px;background:none;border:none;color:var(--faint);
+             font-size:16px;font-weight:700;letter-spacing:.5px;display:flex;
+             flex-direction:column;align-items:center;justify-content:center;gap:5px}
+#tabs button .g{font-size:26px;line-height:1}
+#tabs button.on{color:var(--accent);box-shadow:inset 0 4px 0 var(--accent)}
+
+/* ---- modal ---- */
+#modal{position:fixed;inset:0;background:rgba(3,6,10,.86);display:none;
+       align-items:center;justify-content:center;padding:24px;z-index:50}
+#modal.on{display:flex}
+#modal .box{background:var(--panel);border:2px solid var(--line);border-radius:16px;
+            padding:22px;width:100%;max-width:820px;max-height:88vh;overflow-y:auto;
+            position:relative}
+/* A panel that only tells you something needs a way out, not a button that
+   pretends you agreed to something. */
+#modal .box .mx{position:absolute;top:10px;right:12px;width:auto;min-height:48px;
+  padding:6px 16px;background:none;border:none;color:var(--dim);
+  font-size:30px;line-height:1;font-weight:400}
+#modal .box .mx:active{color:var(--ink)}
+#modal .box .mx + h3{padding-right:52px}
+#modal h3{margin-top:0;color:var(--ink);font-size:24px;text-transform:none;letter-spacing:0}
+/* once a rotation is on screen the keypad collapses out of the way —
+   the operator needs the steps above the fold, not the number pad */
+#lookup.mini label,#lookup.mini #kp,#lookup.mini #recent{display:none}
+#lookup.mini{display:flex;align-items:center;gap:14px;padding:12px 16px}
+#lookup.mini #jobno{font-size:30px;min-height:56px;letter-spacing:2px;
+  border:none;background:transparent;text-align:left;padding:0;flex:1}
+#relook{display:none;width:auto;padding:14px 22px;flex:0 0 auto}
+#lookup.mini #relook{display:flex}
+#toast{position:fixed;left:50%;transform:translateX(-50%);top:96px;z-index:60;
+       background:var(--panel2);border:2px solid var(--line);border-radius:12px;
+       padding:16px 26px;font-size:20px;font-weight:600;display:none}
+#toast.on{display:block}
+#toast.good{border-color:var(--good)} #toast.bad{border-color:var(--bad)}
+</style>
+</head>
+<body>
+
+<header id="bar">
+  <span class="st" id="stName">PRESS —</span>
+  <button class="op" id="opName">no operator</button>
+  <button id="jobChip" hidden></button>
+  <span class="sp"></span>
+  <span id="clock">--:--</span>
+  <span class="dot" id="sync" title="sync"></span>
+  <button id="helpbtn">Practice mode</button>
+  <button id="cfgbtn" aria-label="settings">⚙</button>
+</header>
+
+<!-- Both languages at once, deliberately. This is the one line on the screen
+     that has to land whoever is holding the tablet and whatever it is set to,
+     so it is not run through the translation layer. -->
+<div id="practicebar" hidden>
+  <span class="pbt">
+    <b id="pb_what">&nbsp;</b>
+    <i>Use in practice mode (nothing is saved). &middot; Uso en modo pr&aacute;ctica (no se guarda nada).</i>
+  </span>
+  <button id="pb_exit">Leave &middot; Salir</button>
+</div>
+<button id="checklistbar" hidden>
+  <span class="cb_l">Checklist</span>
+  <span class="cb_n" id="cb_count">0 / 0</span>
+  <span class="cb_c">&rsaquo;</span>
+</button>
+
+<main>
+
+<!-- ===================== ROTATION ===================== -->
+<section class="view on" id="v-rot">
+  <h2>Print order</h2>
+
+  <div class="card" id="lookup">
+    <label>Graphic / order number</label>
+    <input id="jobno" inputmode="numeric" readonly value="">
+    <div id="kp">
+      <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+      <button data-k="del">⌫</button><button data-k="0">0</button>
+      <button data-k="go" class="goK" style="background:var(--accent);border-color:var(--accent);color:#04101f">GO</button>
+    </div>
+    <div id="recent" class="chips" style="margin-top:14px"></div>
+    <button class="btn" id="relook">Change</button>
+  </div>
+
+  <div id="rotOut"></div>
+</section>
+
+<!-- ===================== PRESS LOG ===================== -->
+<section class="view" id="v-press">
+  <h2>Press log</h2>
+
+  <div id="linkBanner"></div>
+
+  <div class="card">
+    <div class="row">
+      <div class="field"><label>Order #</label><input id="p_order" inputmode="numeric"></div>
+      <div class="field"><label>Colors / screens</label><input id="p_colors" inputmode="numeric"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Pieces</label><input id="p_pieces" inputmode="numeric"></div>
+      <div class="field"><label>Garment</label><input id="p_garment" placeholder="body / style"></div>
+    </div>
+  </div>
+
+  <h3>Timers</h3>
+  <div id="t_setup"></div>
+  <div id="t_run"></div>
+  <div id="t_wait"></div>
+  <div class="tiny" id="rateNote" style="margin:-4px 0 14px 4px"></div>
+
+  <h3>Activities</h3>
+  <div class="chips" id="c_act"></div>
+
+  <h3>Delays</h3>
+  <div class="chips" id="c_delay"></div>
+
+  <h3>Problems</h3>
+  <div class="chips" id="c_prob"></div>
+
+  <div class="field" style="margin-top:20px"><label>Notes (optional)</label>
+    <textarea id="p_notes" rows="2"></textarea></div>
+
+  <button class="btn primary lg" id="p_submit" style="margin-top:8px">Submit job</button>
+  <button class="btn ghost" id="p_clear" style="margin-top:12px">Clear form</button>
+</section>
+
+<!-- ===================== SCREEN ROOM ===================== -->
+<section class="view" id="v-dark">
+  <h2>Screen room</h2>
+
+  <div class="card">
+    <div class="row">
+      <div class="field"><label>Humidity % (today)</label><input id="d_hum" inputmode="numeric"></div>
+      <div class="field"><label>Mode</label>
+        <div class="chips">
+          <button class="chip on" data-mode="job">Job</button>
+          <button class="chip" data-mode="shift">Shift task</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="d_job">
+    <div class="jobtabs" id="d_tabs"></div>
+
+    <div class="card">
+      <div class="field"><label>Order #</label><input id="d_order" inputmode="numeric"></div>
+    </div>
+
+    <h3>Screens <span class="tiny" id="d_count"></span></h3>
+    <div id="d_screenlist"></div>
+    <button class="btn" id="scr_add">+ Add screen</button>
+
+    <h3>Timers</h3>
+    <div id="t_prep"></div>
+    <div id="t_finish"></div>
+  </div>
+
+  <div id="d_shift" style="display:none">
+    <div class="card">
+      <div class="row"><div class="field"><label>Coated</label><input id="s_coat" inputmode="numeric"></div>
+        <div class="field"><label>Reclaimed</label><input id="s_reclaim" inputmode="numeric"></div></div>
+      <div class="row"><div class="field"><label>Stretched</label><input id="s_stretch" inputmode="numeric"></div>
+        <div class="field"><label>Cleaned</label><input id="s_clean" inputmode="numeric"></div></div>
+    </div>
+    <h3>Timer</h3>
+    <div id="t_shift"></div>
+  </div>
+
+  <h3>Problems</h3>
+  <div class="chips" id="c_dprob"></div>
+
+  <div class="field" style="margin-top:20px"><label>Notes (optional)</label>
+    <textarea id="d_notes" rows="2"></textarea></div>
+
+  <button class="btn primary lg" id="d_submit">Submit</button>
+  <button class="btn ghost" id="d_clear" style="margin-top:12px">Clear form</button>
+</section>
+
+<!-- ===================== MANAGER DASHBOARD ===================== -->
+<section class="view" id="v-dash">
+  <h2>Production performance</h2>
+  <p class="dashsub">Press setup, delays, print order and screen room — a visual read on how the floor is trending.</p>
+  <p class="dashwhen" id="dashWhen">Updated <b>—</b> &nbsp;·&nbsp; Data through <b>—</b></p>
+  <div class="kpirow" id="dashKpis"></div>
+  <div id="dashBody"></div>
+  <button class="btn ghost" id="dash_refresh" style="margin-top:22px">Refresh</button>
+</section>
+
+<!-- ===================== NUMBERS ===================== -->
+<section class="view" id="v-num">
+  <h2>Numbers</h2>
+  <h3>Me — today</h3>
+  <div class="kpis" id="k_me"></div>
+  <h3 id="k_pressHdr">This press vs target</h3>
+  <div id="k_press"></div>
+  <button class="btn ghost" id="k_refresh" style="margin-top:20px">Refresh</button>
+  <p class="tiny" id="k_note" style="margin-top:14px"></p>
+</section>
+
+</main>
+
+<nav id="tabs">
+  <button data-v="dash"><span class="g">▲</span>DASHBOARD</button>
+  <button class="on" data-v="rot"><span class="g">▦</span>ROTATION</button>
+  <button data-v="press"><span class="g">⏱</span>PRESS LOG</button>
+  <button data-v="dark"><span class="g">◫</span>SCREEN ROOM</button>
+  <button data-v="num"><span class="g">▲</span>NUMBERS</button>
+</nav>
+
+<div id="modal"><div class="box" id="modalBox"></div></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ==========================================================================
+   ONE KNOB EACH — every threshold on the floor tablet lives here.
+   ========================================================================== */
+/* Bump this on every change that goes up to GitHub Pages. It shows in ⚙ and
+   on the sign-on screen, so a tablet can be checked without plugging anything
+   in — walk up, tap ⚙, read the line. Two file mix-ups during the install
+   came down to not knowing which build was where. */
+const APP_VERSION = "2026-10-16z";
+
+const CFG = {
+  PORT_BASE: "",          // same origin, used only when served by the Flask app
+
+  /* BOTH OF THESE STAY EMPTY IN THE REPO.
+     GitHub Pages only serves from a public repo on a free plan, so anything
+     committed here is world-readable. The endpoint URL and the shared token
+     are entered once per tablet in ⚙ and live in that tablet's browser
+     storage — so the published source carries nothing worth having. */
+  SHEET_URL: "",
+  SHEET_TOKEN: "",
+
+  /* WHERE ROTATIONS COME FROM.
+     "auto"  — https page (GitHub Pages) reads the sheet; http page (served by
+               the Flask app on the LAN) asks the pipeline directly.
+     "sheet" / "port" force one.
+
+     An https page cannot fetch http://<shop-ip>:8002 — browsers block mixed
+     active content and no CORS header changes that. So on GitHub Pages the
+     pipeline PUSHES each art-room release into the sheet and the tablet reads
+     it back over https. Better than pulling anyway: the tablet works on any
+     network, it keeps working when the office machine is asleep, and the floor
+     only ever sees rotations the art room actually released. */
+  ROTATION_SOURCE: "auto"
+};
+function rotationSource(){
+  if(CFG.ROTATION_SOURCE!=="auto") return CFG.ROTATION_SOURCE;
+  return location.protocol==="https:" ? "sheet" : "port";
+}
+const K = {
+  SETUP_TARGET_MIN_PER_SCREEN: 8,    // shop target, drives the press-vs-target bar
+  SETUP_CEILING_MIN_PER_SCREEN: 25,  // above this the setup timer ran away
+  RUN_CEILING_MIN: 600,              // 10h — a run timer past this ran away
+  WAIT_CEILING_MIN: 480,             // 8h  — a wait past a shift ran away
+  PREP_CEILING_MIN: 240,
+  CHECKIN_AFTER_MIN: 45,             // still-working? prompt after this much running
+  CHECKIN_REPEAT_MIN: 30,            // and again this often
+  AUTOSAVE_MS: 3000,
+  RECENT_JOBS: 6,
+  LOOKUP_TIMEOUT_MS: 25000,   // Apps Script cold starts are slow; the saved copy covers the rest
+  SHIFT_HANDOVER_H: 10,  // idle this long and the tablet asks who is on it
+  /* The presses offered on the sign-on screen and in ⚙, in floor order: A and
+     B are the two behind the wall, then 1 through 12. Picking from a list
+     beats typing "Press 7" with ink on your hands, and a list means two
+     tablets cannot end up filing under "Press 7" and "press 7". A link can
+     replace it with &stations=Press%20A,Press%20B,… so the list can be fixed
+     without touching this file. */
+  PRESSES: ["Press A","Press B","Press 1","Press 2","Press 3","Press 4","Press 5",
+            "Press 6","Press 7","Press 8","Press 9","Press 10","Press 11","Press 12"],
+  SCREEN_ROOMS: ["Screen room"]
+};
+const CHIPS = {
+  act:   ["Setup","Print","Sample","Reclaim change","Ink mix","Pallet change","Cleanup","Training"],
+  delay: ["Waiting on art","Waiting on screens","Waiting on garments","Waiting on approval",
+          "Press down","Dryer down","No operator","Other"],
+  prob:  ["Registration","Ink coverage","Base too heavy","Flash / cure","Screen breakdown",
+          "Wrong garment","Wrong ink","Misprint","Other"],
+  mesh:  ["110","155","200","230","305","40","86"],
+  dprob: ["Emulsion","Exposure","Washout","Pinholes","Tension","Reclaim","Other"]
+};
+/* The HOW-TO tab (the EN+ES technique sheets) is out for now — 2026-09-03.
+   The Flask route /floor/procedures/<name> is still there, so putting the
+   tab back is a nav button, a <section>, and buildProcs(). */
+
+/* ==========================================================================
+   DEMO MODE — for showing the tablet to the production manager before the
+   pipeline is reachable. Turned on by ?demo=1 or by a window.PP_DEMO flag
+   set ahead of this script. It stubs the two network edges (the PORT app and
+   the Google Sheet) with canned jobs; every other line of this file is the
+   real one, so what he sees is what gets installed.
+   ========================================================================== */
+const DEMO = /[?&]demo=1/.test(location.search) || window.PP_DEMO === true;
+
+/* ==========================================================================
+   PRACTICE MODE AND BROWSER STORAGE
+   Practice runs the real screen with canned jobs, in the same browser, on the
+   same tablet. That means it shares localStorage with the live app — and an
+   operator practising would otherwise overwrite the press log, the timers and
+   the rotation cache of whatever job is actually on the press. So everything
+   operational is namespaced while practising.
+
+   A few keys stay shared on purpose: the language (practice should be in the
+   language they read), the station kind (practice should look like their own
+   tablet), and the backend line (practice never reaches it — fetch is stubbed
+   — but keeping it avoids a confusing "no backend" panel). */
+const LS_SHARED = {pp_lang:1, pp_demo_seen:1, pp_kind:1,
+                   pp_sheet_url:1, pp_sheet_token:1};
+const lsk = k => (DEMO && !LS_SHARED[k]) ? "practice_"+k : k;
+const LS = {
+  get(k){ try{ return localStorage.getItem(lsk(k)); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(lsk(k), v); }catch(e){} }
+};
+if (DEMO) {
+  // The demo has no backend of either kind. Pin it to the /port path so the
+  // canned jobs resolve the same way whether the page is served over http by
+  // the Flask app or over https by GitHub Pages.
+  CFG.ROTATION_SOURCE = "port";
+  const rot = (a) => a.map(x => ({ink:x[0], plate:x[1], mesh:x[2], rule:x[3],
+                                  flash:!!x[4], mash:!!x[5], note:x[6]||undefined}));
+  const JOBS = {
+    // 533000 is a real released job, carried in verbatim from the sheet —
+    // the number the shop actually reaches for should not come back empty.
+    "533000": {ok:true, graphic:"533000", locations:[
+      {label:"Front Center", size_in:8.5, dim:"Wide",
+       source:"533000_01_533000_FrontCenter_extracted_SEP_01_placed.ai (VectorSEP Output — measured)",
+       approved:{approved_by:"art", from:"predicted", ts:"today 3:01 PM",
+         rotation:rot([["Underbase","Underbase",110,"R1",1,1,"base first"],
+                       ["CG 8","COOL GREY 8 C",230,"R5"],
+                       ["WHT","WHT",155,"R7",0,0,"white last — highlight"]])},
+       result:{job:{body:"Jet Black",fabric:"SPORT FLEECE",method:"hyperprint",base_strength:100},
+         flashes:1, signals_used:true, warnings:[],
+         confidence:{R1:"high",R5:"medium",R7:"high"},
+         rotation:rot([["Underbase","Underbase",110,"R1",1,1,"base first"],
+                       ["CG 8","COOL GREY 8 C",230,"R5"],
+                       ["WHT","WHT",155,"R7",0,0,"white last — highlight"]])}}]},
+    "754205": {ok:true, graphic:"754205", locations:[
+      {label:"Front Center", size_in:11.0, dim:"Tall", source:"754205_01_31_SEP_01_placed.ai (VectorSEP Output — measured)",
+       approved:{approved_by:"art", from:"predicted", ts:"today 9:14 AM",
+         rotation:rot([["Underbase","Underbase",155,"R1",1,0,"base first (R1) — no MASH: base ≥ 50% (R3)"],
+                       ["CG 8","Wolf Grey (Cool Grey 8C)",230,"R5"],
+                       ["7714 C","Oceanic Teal (7714 C)",230,"R5"],
+                       ["WHT","WHT",155,"R7",0,0,"white last — highlight (R7)"]])},
+       result:{job:{body:"Flint Black",fabric:"Franklin Jersey",method:"vintage",base_strength:100},
+         flashes:1, signals_used:true, warnings:[],
+         confidence:{R1:"high",R5:"medium (dark body: smaller→larger by area)",R7:"high (dark body → white last ~78%)"},
+         rotation:rot([["Underbase","Underbase",155,"R1",1,0,"base first (R1)"],
+                       ["CG 8","Wolf Grey (Cool Grey 8C)",230,"R5"],
+                       ["7714 C","Oceanic Teal (7714 C)",230,"R5"],
+                       ["WHT","WHT",155,"R7",0,0,"white last — highlight (R7)"]])}},
+      {label:"Left Chest", size_in:3.5, dim:"Wide", source:"the proof only", approved:null,
+       result:{job:{body:"Flint Black",fabric:"Franklin Jersey",method:"vintage",base_strength:100},
+         flashes:1, signals_used:false, warnings:["base inferred from the dark body — the proof prints no underlay callout"],
+         confidence:{R1:"high",R6:"medium"},
+         rotation:rot([["Underbase","Underbase",155,"R1",1,1],["BLK","BLK",230,"R6"]])}}]},
+    "392841": {ok:true, graphic:"392841", locations:[
+      {label:"Center Chest", size_in:11.0, dim:"Tall", source:"392841_01_placed.ai (VectorSEP Output — measured)",
+       approved:{approved_by:"art", from:"corrected", ts:"today 8:02 AM",
+         note:"Art ran: 1. BLK  |  2. Underbase  |  3. Red 187  |  4. AB White — black is the keyline, and black-last blew the 2-flash cap",
+         rotation:rot([["BLK","BLK",230,"R1a",0,0,"dark first — keyline (R1a)"],
+                       ["Underbase","Underbase",155,"R1",1,1],
+                       ["187 C","Red (187 C)",200,"R5"],
+                       ["WHT","AB White",155,"R7"]])},
+       result:{job:{body:"Slate Grey",fabric:"Singleback Jersey",method:"HyperPrint 917",base_strength:100},
+         flashes:1, signals_used:true, warnings:[],
+         confidence:{R1:"high",R4:"high (HyperPrint 917 → solid AB)",R6:"medium"},
+         rotation:rot([["Underbase","Underbase",155,"R1",1,1],
+                       ["187 C","Red (187 C)",200,"R5"],
+                       ["289 C","Navy (289 C)",200,"R5"],
+                       ["BLK","BLK",230,"R6",0,0,"black last (R6)"]])}}]},
+    /* 680203 is off the practice list — an unreleased proof with a low
+       confidence badge is the wrong first thing to hand someone learning the
+       tablet. The job is kept here so it can be put back by adding one
+       button to the list in helpCard(). */
+    "680203": {ok:true, graphic:"680203", locations:[
+      {label:"(single location)", size_in:9.0, dim:"Wide", source:"the proof only", approved:null,
+       result:{job:{body:"White Wash",fabric:"Franklin Jersey",method:"Vintage Print",base_strength:0},
+         flashes:0, signals_used:false,
+         warnings:["No-UB blank (R10) — the spec'd base was struck"],
+         confidence:{R5:"low (light body: lightest → darkest, art order kept)",R6:"high (light + no base → black last ~83%)",R10:"high"},
+         rotation:rot([["7455 C","Sky (7455 C)",200,"R5"],
+                       ["1795 C","Red (1795 C)",200,"R5"],
+                       ["BLK","BLK",305,"R6",0,0,"black last — keyline"]])}}]}
+  };
+  const realFetch = window.fetch.bind(window);
+  window.fetch = (url, opt) => {
+    const u = String(url);
+    /* Looks enough like a real Response to be read either way. predict()
+       reads .text() so it can tell JSON from an HTML error page; a stub with
+       only .json() silently breaks every lookup in practice. */
+    const json = o => Promise.resolve({
+      ok: true, status: 200,
+      json: () => Promise.resolve(o),
+      text: () => Promise.resolve(JSON.stringify(o))
+    });
+    // both rotation paths — /port/predict (Flask) and ?fn=rotation (sheet) —
+    // must be answered, or the demo silently falls through to the catch-all
+    // below and the page reports a job with no readable rotation
+    if (u.includes("/port/predict") || u.includes("fn=rotation")) {
+      const g = (u.match(/graphic=([^&]+)/) || [])[1] || "";
+      return new Promise(r => setTimeout(() =>
+        r(json(JOBS[decodeURIComponent(g)] ||
+               {ok:false, message:"No proof on file for that number. Try 533000, 754205 or 392841."})), 350));
+    }
+    if (u.includes("/port/feedback") || u.includes("/port/approve")) return json({ok:true});
+    if (u.includes("fn=kpi")) return json({ok:true, myJobs:4, myPieces:1180,
+      mySetupMin:142, myRate:7.4, myRateVsAvg:-1.1, pressRate:8.6, excluded:1});
+    /* The dashboard with a season of plausible floor data behind it, so the
+       manager view can be shown before a single real job is logged. Shaped
+       exactly like fn=dash, drifting toward the target the way a floor does
+       when someone starts watching the number. */
+    if (u.includes("fn=dash")) {
+      const wks=[], ops={Luis:[],Marisol:[],Danny:[]}, sts={"Press 1":[],"Press 2":[],"Press 3":[]}, dly={};
+      const names=["Waiting on screens","Waiting on art","Waiting on garments",
+                   "Press down","Waiting on approval","Dryer down","No operator"];
+      const d0=new Date(); d0.setDate(d0.getDate()-((d0.getDay()+6)%7)-7*17);
+      for(let i=0;i<18;i++){
+        const d=new Date(d0); d.setDate(d.getDate()+7*i);
+        const w=d.toISOString().slice(0,10);
+        const wob=Math.sin(i*1.1)*0.7;
+        const rate=+(12.4 - i*0.23 + wob).toFixed(2);
+        wks.push({w, setupRate:rate,
+          atTarget:+Math.max(8,Math.min(94, 26 + i*3.1 + wob*7)).toFixed(1),
+          delayPct:+Math.max(4,(21 - i*0.5 + wob*4)).toFixed(1),
+          pieces:Math.round(7400+Math.sin(i*0.8)*2600+i*90),
+          jobs:Math.round(22+Math.sin(i*0.6)*6),
+          screens:Math.round(96+Math.sin(i*1.4)*38),
+          reshoots:Math.max(0,Math.round(6+Math.sin(i*2.1)*5)),
+          coverage:+Math.min(97,(52+i*2.4)).toFixed(1),
+          portRan:Math.round(13+i*0.5+Math.sin(i)*3),
+          portChanged:Math.max(1,Math.round(8-i*0.3+Math.sin(i*1.7)*2))});
+        const j=wks[wks.length-1].jobs;
+        wks[wks.length-1].timed    = Math.min(j, Math.round(j*(0.55+i*0.022)));
+        wks[wks.length-1].counted  = Math.min(j, Math.round(j*(0.44+i*0.026)));
+        wks[wks.length-1].answered = Math.min(j, Math.round(j*(0.38+i*0.030)));
+        Object.keys(ops).forEach((o,k)=>ops[o].push({w,
+          rate:+(rate+[-1.1,0.9,2.2][k]+Math.sin(i*(1.3+k*0.4))*0.6).toFixed(2),
+          jobs:7, atTarget:null}));
+        Object.keys(sts).forEach((t,k)=>sts[t].push({w,
+          rate:+(rate+[-0.6,0.4,1.9][k]+Math.sin(i*(0.9+k*0.5))*0.5).toFixed(2),
+          jobs:7, atTarget:null}));
+        dly[w]=names.map((n,k)=>({name:n,
+          jobs:Math.max(0,Math.round(9-k*1.1+Math.sin(i*1.9+k*2.3)*3))}))
+          .filter(x=>x.jobs>0).sort((a,b)=>b.jobs-a.jobs);
+      }
+      return json({ok:true, target:8, ceiling:25, weeks:wks, byOperator:ops,
+        byStation:sts, delays:dly, excluded:9, untimed:14,
+        through:new Date().toISOString().slice(0,10),
+        updated:new Date().toISOString().slice(0,16).replace("T"," "),
+        version:"demo"});
+    }
+    if (u.includes("script.google.com")) return json({ok:true});
+    return realFetch(url, opt);
+  };
+}
+
+/* ========================= tiny helpers ========================= */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const el = (t,c,x)=>{const n=document.createElement(t); if(c)n.className=c;
+                     if(x!=null)n.textContent=x; return n;};
+const now = () => Date.now();
+const pad = n => String(n).padStart(2,"0");
+function hms(ms){const s=Math.max(0,Math.floor(ms/1000));
+  return pad(Math.floor(s/3600))+":"+pad(Math.floor(s/60)%60)+":"+pad(s%60);}
+function mins(ms){return ms/60000;}
+function toast(msg,kind){const t=$("#toast"); t.textContent=msg;
+  t.className="on "+(kind||""); clearTimeout(toast._t);
+  toast._t=setTimeout(()=>t.className="",3200);}
+function setSync(c){$("#sync").className="dot "+(c||"");}
+
+/* ========================= station config ========================= */
+const S = {
+  station: LS.get("pp_station") || "",
+  operator: LS.get("pp_operator") || "",
+  sheetUrl: LS.get("pp_sheet_url") || CFG.SHEET_URL,
+  token: LS.get("pp_sheet_token") || CFG.SHEET_TOKEN,
+  // which station this tablet is bolted to — decides which tabs it shows
+  kind: LS.get("pp_kind") || "press",  // press | screen | both
+  /* Nobody configures a crew list. The tablet remembers the names and the
+     stations people actually type, and offers them as buttons next time, so
+     it is typing once and tapping forever after. */
+  names: (function(){ try{ return JSON.parse(LS.get("pp_names")||"[]"); }
+                      catch(e){ return []; } })(),
+  stations: (function(){ try{ return JSON.parse(LS.get("pp_stations")||"[]"); }
+                         catch(e){ return []; } })()
+};
+/* A press tablet has no business showing a screen-room log, and the dark room
+   has no business showing a press rotation. Setting the kind per tablet also
+   settles the order-number question: the two stations run the same job days
+   apart, so they never share one. */
+/* A manager tablet is the same file with a different kind. It gets the
+   dashboard and the rotation lookup — a production manager standing next to
+   an operator wants to pull the job up — and no log to fill in, because
+   nobody files production time against a manager. */
+const TABS_FOR = {press:["rot","press","num"], screen:["dark","num"],
+                  both:["rot","press","dark","num"],
+                  manager:["dash","rot"]};
+function applyKind(){
+  const allow=TABS_FOR[S.kind]||TABS_FOR.both;
+  $$("#tabs button").forEach(b=>b.hidden = !allow.includes(b.dataset.v));
+  const cur=$$("#tabs button").find(b=>b.classList.contains("on"));
+  if(!cur || cur.hidden) $('#tabs button[data-v="'+allow[0]+'"]').click();
+}
+/* ==========================================================================
+   SETUP LINK — #setup=<exec url>|<token>&station=Press%203&kind=press
+   Opening that link on a tablet configures it and wipes the values out of the
+   address bar. The endpoint and token never enter the repo, which has to be
+   public for Pages, and nobody types a 70-character URL on a shop floor.
+   ========================================================================== */
+function applySetupHash(){
+  const h=location.hash||"";
+  if(h.indexOf("setup=")<0) return false;
+  const q=new URLSearchParams(h.replace(/^#/,""));
+  const pair=(q.get("setup")||"").split("|").map(x=>x.trim()).filter(Boolean);
+  if(pair[0]) S.sheetUrl=pair[0];
+  if(pair[1]) S.token=pair[1];
+  if(q.get("station")) S.station=q.get("station").trim();
+  if(q.get("operator")) S.operator=q.get("operator").trim();
+  const k=(q.get("kind")||"").trim();
+  if(["press","screen","both","manager"].indexOf(k)>-1) S.kind=k;
+  // &lang=es provisions a tablet in Spanish from the link, so twelve of them
+  // get set up without anyone walking to each one
+  // &stations=Press%20A,Press%20B,… replaces the built-in list on this tablet
+  const sl=(q.get("stations")||"").split(",").map(x=>x.trim()).filter(Boolean);
+  if(sl.length){ S.stations=sl;
+                 try{LS.set("pp_stations",JSON.stringify(sl));}catch(e){} }
+  const lg=(q.get("lang")||"").trim().toLowerCase();
+  if(lg==="es"||lg==="en"){ LANG=lg; try{LS.set("pp_lang",lg);}catch(e){} }
+  try{
+    LS.set("pp_sheet_url",S.sheetUrl||"");
+    LS.set("pp_sheet_token",S.token||"");
+    LS.set("pp_station",S.station||"");
+    LS.set("pp_operator",S.operator||"");
+    LS.set("pp_kind",S.kind||"press");
+  }catch(e){}
+  // strip it so the token is not sitting in the address bar or in history
+  try{ history.replaceState(null,"",location.pathname+location.search); }
+  catch(e){ location.hash=""; }
+  return true;
+}
+
+/* A tablet nobody has signed on to has an empty station list, which leaves
+   the operator a blank box to type into. Seed it from the shop's own list so
+   the first person to pick the tablet up gets buttons. Anything typed by hand
+   is still remembered and appended after these. */
+function seedStations(){
+  const want = S.kind==="screen" ? K.SCREEN_ROOMS : K.PRESSES;
+  const have = S.stations || [];
+  const merged = want.concat(have.filter(v=>want.indexOf(v)<0));
+  if(merged.join("|") !== have.join("|")){
+    S.stations = merged;
+    try{ LS.set("pp_stations", JSON.stringify(merged)); }catch(e){}
+  }
+}
+
+function paintBar(){
+  /* A manager tablet is not standing at a press and nothing is filed against
+     it, so it carries neither a station nor a name. */
+  const mgr = S.kind==="manager";
+  $("#stName").textContent = mgr ? "PRODUCTION"
+    : (S.station ? S.station.toUpperCase() : "PRESS —");
+  $("#opName").hidden = mgr;
+  $("#opName").textContent = S.operator || "no operator";
+  $("#k_pressHdr").textContent = (S.station||"This press") + " vs target";
+}
+/* A tablet that already knows its backend needs one thing from the person
+   picking it up: their name. Opening the full settings screen at that moment
+   put an endpoint URL and a token in front of a press operator, which is
+   neither their business nor their problem. */
+/* WHO IS ON, AND WHERE.
+   One tablet gets carried around and shared. So the operator says who they
+   are and which station they are at, and the tablet remembers both for next
+   time — the lists build themselves out of use. Nothing to set up, nothing
+   to maintain, and the data lands under the right name and the right press.
+
+   SHIFT_HANDOVER_H covers the case nobody remembers: a tablet left on
+   overnight would file the next shift's jobs under whoever last touched it.
+   After that long idle it asks again, and that one cannot be skipped. */
+function startShift(force, askName){
+  const row=(list,cur,key)=>(list||[]).map(v=>
+    `<button class="chip${v===cur?" on":""}" data-${key}="${esc(v)}">${esc(v)}</button>`).join("");
+
+  /* THE STATION IS ASKED ONCE. Jairo has not tied tablets to presses, so the
+     first person to sign one on picks the press — but it sticks after that,
+     and only ⚙ changes it. Re-asking every shift is a wrong press waiting to
+     happen: one mis-tap at the start of a shift and a day of jobs files
+     against the wrong machine. */
+  const askStation = !S.station;
+
+  /* THE NAME IS REMEMBERED AND CONFIRMED. Most shifts the same person picks
+     up the same tablet, so making them retype their name every time is a
+     tax on the common case — and a tax people pay by tapping past it, which
+     is how jobs end up under whoever used it last. One button for yes, one
+     for someone else. */
+  if(!askStation && !askName && S.operator){
+    modal(`<h3>Still ${esc(S.operator)}?</h3>
+      <p class="muted" style="margin:-6px 0 18px">${esc(S.station)} &middot;
+        <span class="tiny">change the press in &#9881;</span></p>
+      <button class="btn good lg" id="sc_yes">Yes, it's me</button>
+      <button class="btn lg" id="sc_no" style="margin-top:12px">Someone else</button>`);
+    $("#sc_yes").onclick=()=>{ touchActive(); closeModal(); };
+    $("#sc_no").onclick=()=>{ startShift(force, true); };
+    return;
+  }
+
+  modal(`<h3>${askStation ? "Which press is this?" : "Who's on?"}</h3>
+    ${askStation ? `
+    <div class="field"><label>Station</label>
+      ${S.stations.length?`<div class="chips" id="ss_stations" style="margin-bottom:12px">${row(S.stations,S.station,"st")}</div>`:""}
+      <input id="ss_station" value="${esc(S.station)}" placeholder="or type it" autocomplete="off"></div>
+    <div class="field"><label>What is it</label>
+      <div class="chips" id="ss_kind">
+        <button class="chip${S.kind!=="screen"?" on":""}" data-kind="press">A press</button>
+        <button class="chip${S.kind==="screen"?" on":""}" data-kind="screen">Screen room</button>
+      </div></div>` : `
+    <p class="muted" style="margin:-6px 0 18px">${esc(S.station)} &middot;
+      <span class="tiny">change the press in &#9881;</span></p>`}
+    <div class="field"><label>You</label>
+      ${S.names.length?`<div class="chips" id="ss_names" style="margin-bottom:12px">${row(S.names,S.operator,"who")}</div>`:""}
+      <input id="ss_name" value="${esc(askName?"":S.operator)}" placeholder="your name" autocomplete="off"></div>
+    <div class="field"><label>Language</label>
+      <div class="chips" id="ss_lang">
+        <button class="chip${LANG!=="es"?" on":""}" data-lang="en">English</button>
+        <button class="chip${LANG==="es"?" on":""}" data-lang="es">Español</button>
+      </div></div>
+    <button class="btn primary lg" id="ss_go" style="margin-top:8px">Start</button>
+    ${force?"":`<button class="btn ghost" id="ss_x" style="margin-top:12px">Cancel</button>`}
+    <p class="tiny" style="margin-top:16px;text-align:center;opacity:.7">${esc(APP_VERSION)}</p>`);
+
+  let kind=S.kind||"press";
+  $$("#ss_names .chip").forEach(b=>b.onclick=()=>{ $("#ss_name").value=b.dataset.who;
+    $$("#ss_names .chip").forEach(x=>x.classList.toggle("on",x===b)); });
+  $$("#ss_stations .chip").forEach(b=>b.onclick=()=>{ $("#ss_station").value=b.dataset.st;
+    $$("#ss_stations .chip").forEach(x=>x.classList.toggle("on",x===b)); });
+  $$("#ss_kind .chip").forEach(b=>b.onclick=()=>{ kind=b.dataset.kind;
+    $$("#ss_kind .chip").forEach(x=>x.classList.toggle("on",x===b)); });
+  /* flips the whole screen on the spot — nobody picks a language they cannot
+     already read, and nothing typed so far is lost */
+  $$("#ss_lang .chip").forEach(b=>b.onclick=()=>{
+    $$("#ss_lang .chip").forEach(x=>x.classList.toggle("on",x===b));
+    setLang(b.dataset.lang); });
+
+  $("#ss_go").onclick=()=>{
+    const nm=$("#ss_name").value.trim();
+    const st=askStation ? $("#ss_station").value.trim() : S.station;
+    if(askStation && !st){toast("Which press is this?","bad");return;}
+    if(!nm){toast("Your name — it's what your numbers are filed under","bad");return;}
+    S.operator=nm; S.station=st; if(askStation) S.kind=kind;
+    const add=(list,v)=>list.indexOf(v)<0 ? list.concat([v]).slice(-24) : list;
+    S.names=add(S.names,nm); S.stations=add(S.stations,st);
+    try{
+      LS.set("pp_operator",nm);
+      LS.set("pp_station",st);
+      LS.set("pp_kind",S.kind);
+      LS.set("pp_names",JSON.stringify(S.names));
+      LS.set("pp_stations",JSON.stringify(S.stations));
+      LS.set("pp_last_active",String(now()));
+    }catch(e){}
+    paintBar(); applyKind(); closeModal();
+  };
+  const x=$("#ss_x"); if(x) x.onclick=closeModal;
+}
+function touchActive(){ try{ LS.set("pp_last_active",String(now())); }catch(e){} }
+function shiftLapsed(){
+  try{
+    const t=Number(LS.get("pp_last_active")||0);
+    return t>0 && (now()-t) > K.SHIFT_HANDOVER_H*3600000;
+  }catch(e){ return false; }
+}
+
+
+/* ==========================================================================
+   SETTINGS
+   Two audiences, one button. An operator opening ⚙ wants their language and,
+   occasionally, to fix the press name. They have no business being shown an
+   Apps Script URL and a shared token — that is installer plumbing, it is set
+   once from the setup link, and a panel that leads with it reads as broken.
+
+   So the installer half is folded away behind a tap on the version line at
+   the bottom. Quiet, no lock, nothing to forget — but not something an
+   operator stumbles into. The one exception is a tablet with no backend at
+   all: it cannot be used until that is set, so it says so plainly and opens
+   the field itself rather than presenting a mystery box.
+   ========================================================================== */
+let CFG_ADV = false;
+function openCfg(){
+  const unset = !(S.sheetUrl||CFG.SHEET_URL);
+  /* Not "|| unset". An unconfigured tablet used to open this field for
+     whoever picked it up, which is the one person who should never see it.
+     It is installer plumbing in every case, so it lives behind the same tap
+     on the version line whether the tablet is set up or not. */
+  const adv = CFG_ADV;
+  const kindBtn=(v,t)=>`<button class="chip${S.kind===v?" on":""}" data-kind="${v}">${t}</button>`;
+
+  const installer = `
+    <h3 style="font-size:19px;margin:26px 0 10px;padding-top:18px;border-top:1px solid var(--line)">Setup</h3>
+    <div class="field"><label>Where is it</label>
+      <div class="chips" id="cf_kind">
+        ${kindBtn("press","At a press")}${kindBtn("screen","Screen room")}${kindBtn("both","Both")}${kindBtn("manager","Manager")}
+      </div></div>
+    <div class="field" ${DEMO?'hidden':''}><label>Setup link</label>
+      <textarea id="cf_url" rows="3" placeholder="Paste the setup link here">${esc(S.sheetUrl && S.token ? S.sheetUrl+" | "+S.token : S.sheetUrl)}</textarea></div>`;
+
+  modal(`<button class="mx" id="cf_x2" aria-label="close">&times;</button>
+    <h3>${unset ? "This tablet is not set up yet" : "This tablet"}</h3>
+    <div class="field"><label>Language</label>
+      <div class="chips" id="cf_lang">
+        <button class="chip${LANG!=="es"?" on":""}" data-lang="en">English</button>
+        <button class="chip${LANG==="es"?" on":""}" data-lang="es">Español</button>
+      </div></div>
+    <div class="field"><label>Station / press name</label>
+      <div class="chips" id="cf_stations" style="margin-bottom:12px">${
+        (S.stations||[]).map(v=>`<button class="chip${v===S.station?" on":""}" data-st="${esc(v)}">${esc(v)}</button>`).join("")
+      }</div>
+      <input id="cf_st" value="${esc(S.station)}" placeholder="or type it"></div>
+    <div class="field"><label>Operator</label>
+      <input id="cf_op" value="${esc(S.operator)}" placeholder="name"></div>
+    ${adv ? installer : ""}
+    ${DEMO?'<p class="tiny">Practice build — nothing here leaves the tablet.</p>':''}
+    <button class="btn primary lg" id="cf_save" style="margin-top:8px">Save</button>
+    <p class="tiny" id="cf_ver" style="margin-top:18px;text-align:center;line-height:1.6">
+      tablet <b>${esc(APP_VERSION)}</b><br>backend …</p>`);
+
+  /* An operator gets one quiet line: which build this tablet is on. Whether
+     it is talking to the sheet is an installer's question and reads as an
+     alarm to anyone else, so it only appears once the setup half is open.
+     The line is the way in to that half either way. */
+  (function(){
+    const n=$("#cf_ver"), u=S.sheetUrl||CFG.SHEET_URL;
+    if(!n) return;
+    const head = "tablet <b>"+esc(APP_VERSION)+"</b>";
+    n.innerHTML = head;
+    n.onclick=()=>{ CFG_ADV=!CFG_ADV; openCfg(); };
+    if(!adv) return;
+    /* Read live: the question is never "what did I paste" but "what is
+       actually deployed". In practice there is nothing to ask — the network
+       is stubbed — so say that rather than printing a question mark. */
+    if(DEMO){ n.innerHTML = head+"<br>practice — not connected to the sheet"; }
+    else if(!u){ n.innerHTML = head+"<br>no setup link on this tablet yet"; }
+    else {
+      n.innerHTML = head+"<br>sheet …";
+      fetch(u+"?fn=version",{cache:"no-store"}).then(r=>r.json()).then(d=>{
+        n.innerHTML = head + "<br>" + (d && d.version
+          ? "sheet <b>"+esc(d.version)+"</b>"
+          : "connected, but the sheet did not say which version");
+      }).catch(()=>{ n.innerHTML = head+"<br>can't reach the sheet"; });
+    }
+  })();
+
+  let kind=S.kind;
+  $$("#cf_kind .chip").forEach(b=>b.onclick=()=>{
+    kind=b.dataset.kind;
+    $$("#cf_kind .chip").forEach(x=>x.classList.toggle("on",x===b));
+  });
+  $$("#cf_stations .chip").forEach(b=>b.onclick=()=>{
+    $("#cf_st").value=b.dataset.st;
+    $$("#cf_stations .chip").forEach(x=>x.classList.toggle("on",x===b)); });
+  $$("#cf_lang .chip").forEach(b=>b.onclick=()=>{
+    $$("#cf_lang .chip").forEach(x=>x.classList.toggle("on",x===b));
+    setLang(b.dataset.lang); });
+
+  $("#cf_save").onclick=()=>{
+    S.station=$("#cf_st").value.trim();
+    // the installer fields only exist while that half is open
+    const k=$("#cf_kind"); if(k) S.kind=kind;
+    const op=$("#cf_op");  if(op) S.operator=op.value.trim();
+    const u=$("#cf_url");
+    if(u){
+      // one paste: "<https://…/exec> | <token>". The token half is optional
+      // so an existing tablet can be repointed at a new deployment alone.
+      const parts=u.value.split("|").map(x=>x.trim()).filter(Boolean);
+      if(parts[0]) S.sheetUrl=parts[0];
+      if(parts[1]) S.token=parts[1];
+    }
+    LS.set("pp_sheet_token",S.token||"");
+    LS.set("pp_kind",S.kind);
+    LS.set("pp_station",S.station);
+    LS.set("pp_operator",S.operator);
+    LS.set("pp_sheet_url",S.sheetUrl);
+    CFG_ADV=false;
+    paintBar(); applyKind(); closeModal(); toast("Saved","good");
+  };
+  $("#cf_x2").onclick=()=>{ CFG_ADV=false; closeModal(); };
+}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,
+  c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+
+/* ==========================================================================
+   ENGLISH / SPANISH
+   ---------------------------------------------------------------------------
+   The floor reads Spanish; the sheet stays English. Nothing below changes a
+   single value that gets submitted — chip selections, decisions and change
+   types are held in closures and Sets as English strings and are posted as
+   English. Only what is PAINTED is swapped, so a manager opening PP PORT sees
+   the same columns whichever language the tablet was set to.
+
+   How it works: one dictionary of exact strings, one of number-shaped
+   skeletons (a run of digits becomes #), and a short list of patterns for the
+   lines that carry a job number or an ink name inside them. A MutationObserver
+   translates whatever the page renders next, so every existing render function
+   is untouched — adding a string later is a dictionary line, not a code change.
+
+   Language is per tablet: localStorage "pp_lang", set from the EN|ES buttons
+   on the sign-on screen and in ⚙, or from &lang=es on the setup link so all
+   twelve tablets can be provisioned without touching one of them.
+   ========================================================================== */
+const ES = {
+  /* ---- top bar + nav ---- */
+  "PRESS —":"PRENSA —",
+  "no operator":"sin operador",
+  "settings":"configuración",
+  "sync":"conexión",
+  "ROTATION":"ROTACIÓN",
+  "PRESS LOG":"PRENSA",
+  "SCREEN ROOM":"PANTALLAS",
+  "NUMBERS":"NÚMEROS",
+
+  /* ---- rotation ---- */
+  "Print order":"Orden de impresión",
+  "Graphic / order number":"Número de gráfico / orden",
+  "GO":"IR",
+  "Change":"Cambiar",
+  "Enter a number":"Escribe un número",
+  "No rotation for that number":"No hay rotación para ese número",
+  "No rotation for that number.":"No hay rotación para ese número.",
+  "No readable rotation on this proof.":"Esta prueba no tiene una rotación legible.",
+  "Nothing for this location.":"Nada para esta ubicación.",
+  "Backend not set on this tablet — tap ⚙ and paste the setup line.":
+    "Esta tableta no tiene el servidor configurado — toca ⚙ y pega la línea de configuración.",
+  "The sheet answered with an error page, not the job. It needs redeploying — show this to whoever set up the tablets.":
+    "La hoja contestó con una página de error, no con el trabajo. Hay que volver a publicarla — enséñale esto a quien configuró las tabletas.",
+  "Can't reach the job list. Check this tablet's wifi.":
+    "No se puede llegar a la lista de trabajos. Revisa el wifi de esta tableta.",
+  "Can't reach the job list. Check shop wifi.":
+    "No se puede llegar a la lista de trabajos. Revisa el wifi del taller.",
+  "Saved copy — couldn't reach the release list just now.":
+    "Copia guardada — no se pudo llegar a la lista de liberaciones en este momento.",
+  "✓ RUN THIS AS SHOWN":"✓ CÓRRELO ASÍ COMO SE MUESTRA",
+  "NOT RELEASED YET":"TODAVÍA NO ESTÁ LIBERADO",
+  "This is the tool's suggestion. Art has not signed off on it.":
+    "Esta es la sugerencia de la herramienta. Arte no la ha aprobado.",
+  "Art changed this from the tool's order.":"Arte cambió esto del orden de la herramienta.",
+  "no art preview":"sin vista previa",
+  "for this release":"de esta liberación",
+  "LOW CONFIDENCE — PRINT ORDER":"CONFIANZA BAJA — ORDEN DE IMPRESIÓN",
+  "MEDIUM CONFIDENCE — PRINT ORDER":"CONFIANZA MEDIA — ORDEN DE IMPRESIÓN",
+  "✓ Ran it as shown":"✓ Lo corrí así",
+  "Changed the order":"Cambié el orden",
+  "+ Add a screen":"+ Agregar pantalla",
+  "Put it in the order you actually ran. Tap FLASH, MASH or COOL on the step it follows. Change an ink, add a screen, or remove one.":
+    "Ponlo en el orden que de veras corriste. Toca FLASH, MASH o COOL en el paso al que le sigue. Cambia una tinta, agrega una pantalla o quita una.",
+  "Save what I ran":"Guardar lo que corrí",
+  "Cancel":"Cancelar",
+  "Back":"Atrás",
+  "Save":"Guardar",
+  "Saved":"Guardado",
+  "Start":"Empezar",
+  "remove this screen":"quitar esta pantalla",
+  "Change ink or mesh":"Cambiar tinta o malla",
+  "Ink / PMS":"Tinta / PMS",
+  "Mesh":"Malla",
+  "e.g. 186 C, WHT, Underbase":"ej. 186 C, WHT, Underbase",
+  "The screen needs an ink name":"La pantalla necesita un nombre de tinta",
+  "Pick a mesh count":"Escoge una malla",
+  "Why did it change?":"¿Por qué cambió?",
+  "Anything else":"Algo más",
+  "optional":"opcional",
+  "Nothing changed — use 'Ran it as shown'":"Nada cambió — usa 'Lo corrí así'",
+  "Pick at least one reason":"Escoge al menos una razón",
+  "Saved with this job":"Guardado con este trabajo",
+  "Override saved with this job":"Cambio guardado con este trabajo",
+  "Logged — ran as shown":"Registrado — corrido así como se muestra",
+  "Logged — override saved":"Registrado — cambio guardado",
+  "Not saved — no connection":"No se guardó — sin conexión",
+  "✓ ran the predicted order":"✓ corrió el orden sugerido",
+  "not answered yet — tap ROTATION and say what you ran":
+    "todavía sin contestar — toca ROTACIÓN y di qué corriste",
+  "No rotation loaded. Look the job up on ROTATION first and this log fills itself in.":
+    "No hay rotación cargada. Busca el trabajo en ROTACIÓN primero y este registro se llena solo.",
+  "Go to ROTATION":"Ir a ROTACIÓN",
+  "unlink":"desvincular",
+
+  /* ---- reasons ---- */
+  "Trapping":"Trapping",
+  "Keyline / registration":"Línea clave / registro",
+  "Flash budget":"Límite de flashes",
+  "Bleeder color":"Color de sangrado",
+  "Customer / art call":"Decisión del cliente / arte",
+  "Press setup":"Montaje de prensa",
+
+  /* ---- press log ---- */
+  "Press log":"Registro de prensa",
+  "Order #":"Orden #",
+  "Colors / screens":"Colores / pantallas",
+  "Pieces":"Piezas",
+  "Garment":"Prenda",
+  "body / style":"cuerpo / estilo",
+  "Timers":"Cronómetros",
+  "Timer":"Cronómetro",
+  "Activities":"Actividades",
+  "Delays":"Retrasos",
+  "Problems":"Problemas",
+  "Notes (optional)":"Notas (opcional)",
+  "Submit job":"Enviar trabajo",
+  "Submit":"Enviar",
+  "Clear form":"Borrar formulario",
+  "Order # is required":"La orden # es obligatoria",
+  "Colors / screens is required":"Colores / pantallas es obligatorio",
+  "Job submitted":"Trabajo enviado",
+  "Submitted":"Enviado",
+  "Clear this job?":"¿Borrar este trabajo?",
+  "Set the press and operator — tap ⚙":"Pon la prensa y el operador — toca ⚙",
+  "No Apps Script URL set — tap ⚙":"No hay dirección del servidor — toca ⚙",
+  "Saved on the tablet — will send when wifi is back":
+    "Guardado en la tableta — se enviará cuando regrese el wifi",
+
+  /* ---- timers ---- */
+  "Setup":"Setup",
+  "Run":"Corrida",
+  "Waiting (press idle)":"Espera (prensa parada)",
+  "Prep":"Preparación",
+  "Finish":"Terminado",
+  "Shift task":"Tarea de turno",
+  "START":"INICIAR",
+  "STOP":"PARAR",
+  "RESUME":"SEGUIR",
+  "OVER":"EXCEDIDO",
+  "Yes — keep running":"Sí — déjalo corriendo",
+  "No — stop it and flag":"No — párenlo y márquenlo",
+  "Pause and hold":"Pausar y dejar",
+  "Stopped and flagged":"Parado y marcado",
+  "Held":"En pausa",
+
+  /* ---- activity / delay / problem chips (display only — posted in English) ---- */
+  "Print":"Imprimir",
+  "Sample":"Muestra",
+  "Reclaim change":"Cambio por recuperado",
+  "Ink mix":"Mezcla de tinta",
+  "Pallet change":"Cambio de paletas",
+  "Cleanup":"Limpieza",
+  "Training":"Entrenamiento",
+  "Waiting on art":"Esperando arte",
+  "Waiting on screens":"Esperando pantallas",
+  "Waiting on garments":"Esperando prendas",
+  "Waiting on approval":"Esperando aprobación",
+  "Press down":"Prensa parada",
+  "Dryer down":"Horno parado",
+  "No operator":"Sin operador",
+  "Other":"Otro",
+  "Registration":"Registro",
+  "Ink coverage":"Cobertura de tinta",
+  "Base too heavy":"Base muy pesada",
+  "Flash / cure":"Flash / curado",
+  "Screen breakdown":"Pantalla dañada",
+  "Wrong garment":"Prenda equivocada",
+  "Wrong ink":"Tinta equivocada",
+  "Misprint":"Mal impreso",
+  "Emulsion":"Emulsión",
+  "Exposure":"Exposición",
+  "Washout":"Revelado",
+  "Pinholes":"Poros",
+  "Tension":"Tensión",
+  "Reclaim":"Recuperado",
+  "What was it?":"¿Qué fue?",
+  "A few words. These get reviewed and the common ones become their own button.":
+    "Unas cuantas palabras. Se revisan y las más comunes se vuelven su propio botón.",
+  "short description":"descripción corta",
+  "Needs a few words":"Faltan unas palabras",
+
+  /* ---- screen room ---- */
+  "Screen room":"Cuarto de pantallas",
+  "Humidity % (today)":"Humedad % (hoy)",
+  "Mode":"Modo",
+  "Job":"Trabajo",
+  "Screens":"Pantallas",
+  "+ Add screen":"+ Agregar pantalla",
+  "Reshoot":"Repetir",
+  "no mesh yet":"sin malla todavía",
+  "Coated":"Emulsionadas",
+  "Reclaimed":"Recuperadas",
+  "Stretched":"Estiradas",
+  "Cleaned":"Limpiadas",
+  "Every screen needs a mesh count":"Cada pantalla necesita una malla",
+  "Close this job without submitting?":"¿Cerrar este trabajo sin enviarlo?",
+  "Clear this entry?":"¿Borrar esta entrada?",
+
+  /* ---- numbers ---- */
+  "Numbers":"Números",
+  "Me — today":"Yo — hoy",
+  "This press vs target":"Esta prensa vs meta",
+  "Refresh":"Actualizar",
+  "Jobs today":"Trabajos hoy",
+  "Pieces today":"Piezas hoy",
+  "Min / screen (setup)":"Min / pantalla (setup)",
+  "Setup time today":"Tiempo de setup hoy",
+  "min/screen":"min/pantalla",
+  "at or under target":"en la meta o por debajo",
+  "no jobs logged yet":"todavía no hay trabajos registrados",
+  "Can't reach the sheet.":"No se puede llegar a la hoja.",
+
+  /* ---- sign-on + settings ---- */
+  "Who's on, and where?":"¿Quién está, y dónde?",
+  "You":"Tú",
+  "your name":"tu nombre",
+  "Station":"Estación",
+  "Which press is this?":"¿Cuál prensa es esta?",
+  "Who's on?":"¿Quién está?",
+  "Yes, it's me":"Sí, soy yo",
+  "Someone else":"Otra persona",
+  "change the press in ⚙":"cambia la prensa en ⚙",
+  "or type it":"o escríbela",
+  "change it in ⚙":"cámbiala en ⚙",
+  "What is it":"Qué es",
+  "A press":"Una prensa",
+  "Language":"Idioma",
+  "Your name — it's what your numbers are filed under":
+    "Tu nombre — así se guardan tus números",
+  "Which station are you at?":"¿En qué estación estás?",
+  "This tablet":"Esta tableta",
+  "Where is it":"Dónde está",
+  "At a press":"En una prensa",
+  "Both":"Las dos",
+  "Station / press name":"Estación / nombre de la prensa",
+  "Operator":"Operador",
+  "name":"nombre",
+  "Setup":"Configuración",
+  "Setup link":"Enlace de configuración",
+  "Paste the setup link here":"Pega aquí el enlace de configuración",
+  "practice — not connected to the sheet":"práctica — sin conexión a la hoja",
+  "no setup link on this tablet yet":"esta tableta todavía no tiene enlace de configuración",
+  "can't reach the sheet":"no se puede alcanzar la hoja",
+  "connected, but the sheet did not say which version":
+    "conectada, pero la hoja no dijo qué versión",
+  "This tablet is not set up yet":"Esta tableta todavía no está configurada",
+  "Paste the whole line from SETUP_LINKS.txt — the /exec address, a | , then the token.":
+    "Pega la línea completa de SETUP_LINKS.txt — la dirección /exec, un | , y luego el token.",
+  "Press 1, Press 2, Dark room…":"Prensa 1, Prensa 2, Cuarto de pantallas…"
+};
+
+/* Number-shaped lines: every run of digits is replaced by # before lookup and
+   the real numbers are put back after. One entry covers 1 screen and 11. */
+const ES_N = {
+  "Setup # min/screen · target # · flag over #":
+    "Setup # min/pantalla · meta # · se marca arriba de #",
+  "Looking up #…":"Buscando #…",
+  "Move the press log to #?":"¿Mover el registro de prensa a #?",
+  "Move to #":"Mover a #",
+  "Stay on #":"Quedarse en #",
+  "Look up #":"Buscar #",
+  "Screen #":"Pantalla #",
+  "Job #":"Trabajo #",
+  "Location #":"Ubicación #",
+  "Sent # saved job(s)":"Se enviaron # trabajo(s) guardado(s)",
+  '#" wide':'#" de ancho',
+  '#" tall':'#" de alto',
+  " — proof gives no width":" — la prueba no da el ancho",
+  "Base #% · # flash":"Base #% · # flash",
+  "Base #% · # flashes":"Base #% · # flashes",
+  "flash — most presses are set for 2. Sure?":
+    "flash — casi todas las prensas están puestas para 2. ¿Seguro?",
+  "flashes — most presses are set for 2. Sure?":
+    "flashes — casi todas las prensas están puestas para 2. ¿Seguro?",
+  "+# over target":"+# arriba de la meta",
+  "Runaway rows (setup over # min/screen) are excluded from these averages, not trimmed.":
+    "Las filas desbocadas (setup arriba de # min/pantalla) se excluyen de estos promedios, no se recortan.",
+  "Runaway rows (setup over # min/screen) are excluded from these averages, not trimmed. # excluded today.":
+    "Las filas desbocadas (setup arriba de # min/pantalla) se excluyen de estos promedios, no se recortan. # excluida(s) hoy."
+};
+
+/* Lines that carry a name, a job number or free text inside them. */
+const ES_RX = [
+  [/^Still on (.+)\?$/,            m=>"¿Sigues en "+T(m[1])+"?"],
+  [/^Still (.+)\?$/,               m=>"¿Sigues siendo "+m[1]+"?"],
+  [/^It has been running (.+)\.$/, m=>"Lleva corriendo "+m[1]+"."],
+  [/^Remove (.+)\?$/,              m=>"¿Quitar "+m[1]+"?"],
+  [/^Remove (.+)$/,                m=>"Quitar "+m[1]],
+  [/^Tablet set up — (.+)$/,       m=>"Tableta configurada — "+m[1]],
+  [/^Not saved: (.+)$/,            m=>"No se guardó: "+m[1]],
+  [/^Source: (.+)$/,               m=>"Origen: "+m[1]],
+  [/^(\d+) mesh$/,                 m=>"malla "+m[1]],
+  [/^(\d+) mesh · (.+)$/,          m=>"malla "+m[1]+" · "+m[2]],
+  [/^(\d+) screens? · (\d+) reshoot$/,
+      m=>m[1]+(m[1]==="1"?" pantalla":" pantallas")+" · "+m[2]+" a repetir"],
+  [/^(\d+) screens?$/,             m=>m[1]+(m[1]==="1"?" pantalla":" pantallas")],
+  [/^ · released by Art(.*?) · (.*)$/,
+      m=>" · liberado por Arte"+(m[1]?" (corregido)":"")+" · "+m[2]],
+  [/^The press log is still on order $/, ()=>"El registro de prensa sigue en la orden "],
+  [/^(?:, with (.+?) of setup time on it)?\.\s*Moving to (.+?) clears what is there and starts fresh\.$/,
+       m=>(m[1]?", con "+m[1]+" de tiempo de setup":"")+
+          ". Mover a "+m[2]+" borra lo que hay y empieza de nuevo."],
+  [/^✎ changed \((.+)\) — (.+)$/,  m=>"✎ cambiado ("+chg(m[1])+") — "+m[2]],
+  [/^(?: · (.+?))? — (\d+) screens? · (\d+) flash(?:es)? · (.+)$/,
+      m=>(m[1]?" · "+T(m[1]):"")+" — "+m[2]+" pantallas · "+m[3]+" flash · "+
+         (/not released/.test(m[4]) ? "sin liberar"
+          : "liberado por Arte"+(/corrected/.test(m[4])?" (corregido)":""))],
+  [/^(.+) today · target (\d+)$/,  m=>m[1]+" hoy · meta "+m[2]],
+  [/^(.+) vs target$/,             m=>m[1]+" vs meta"],
+  [/^([▼▲]) ([\d.]+) vs your average$/, m=>m[1]+" "+m[2]+" vs tu promedio"],
+  [/^⚠ (.+)$/,                     m=>"⚠ "+m[1]]
+];
+/* change-type tokens, as whatChanged() joins them */
+const CHG = {screens:"pantallas", order:"orden", ink:"tinta",
+             flash:"flash", mash:"mash", cool:"cool", none:"nada"};
+const chg = s => String(s).split("+").map(x=>CHG[x]||x).join("+");
+
+/* Phrases the rotation tool writes under a step, after plain() has stripped
+   its rule codes. Anything it writes that is not listed stays in English
+   rather than being guessed at on a press. */
+Object.assign(ES, {
+  "base first":"la base primero",
+  "white last — highlight":"el blanco al final — realce",
+  "white last":"el blanco al final",
+  "black last":"el negro al final",
+  "black last — keyline":"el negro al final — línea clave",
+  "dark first — keyline":"el oscuro primero — línea clave",
+  "no MASH: base ≥ 50%":"sin MASH: base ≥ 50%",
+  "base first — no MASH: base ≥ 50%":"la base primero — sin MASH: base ≥ 50%",
+  "(single location)":"(una sola ubicación)",
+  "base inferred from the dark body — the proof prints no underlay callout":
+    "la base se dedujo del cuerpo oscuro — la prueba no indica base"
+});
+
+/* ---- manager dashboard ---- */
+Object.assign(ES, {
+  "DASHBOARD":"PANEL",
+  "Production performance":"Rendimiento de producción",
+  "Press setup, delays, print order and screen room — a visual read on how the floor is trending.":
+    "Setup de prensa, retrasos, orden de impresión y cuarto de pantallas — una lectura visual de cómo va el piso.",
+  "Setup min/screen":"Setup min/pantalla",
+  "Jobs at target":"Trabajos en la meta",
+  "Delay % of hours":"Retraso % de las horas",
+  "Jobs this week":"Trabajos esta semana",
+  "lower is better":"menos es mejor",
+  "lower is better ·":"menos es mejor ·",
+  "12 wk":"12 sem",
+  "All":"Todo",
+  "Setup time per screen":"Tiempo de setup por pantalla",
+  "Jobs hitting the target":"Trabajos que llegan a la meta",
+  "Delay — share of logged hours":"Retraso — parte de las horas registradas",
+  "Setup per screen, by operator":"Setup por pantalla, por operador",
+  "Setup per screen, by press":"Setup por pantalla, por prensa",
+  "Print order — ran it vs changed it":"Orden de impresión — lo corrieron vs lo cambiaron",
+  "Pieces printed":"Piezas impresas",
+  "Screen room output":"Producción del cuarto de pantallas",
+  "Screen room coverage":"Cobertura del cuarto de pantallas",
+  "Delay chart — biggest time-losers":"Gráfica de retrasos — lo que más tiempo quita",
+  "CURRENT #1 DELAY":"RETRASO #1 ACTUAL",
+  "NEW":"NUEVO",
+  "▶ Play":"▶ Reproducir",
+  "❚❚ Pause":"❚❚ Pausa",
+  "Reading the floor logs…":"Leyendo los registros del piso…",
+  "No press logs yet. This fills in as the floor submits jobs.":
+    "Todavía no hay registros de prensa. Esto se llena conforme el piso envía trabajos.",
+  "No delays logged that week.":"No se registraron retrasos esa semana.",
+  "Nothing logged yet.":"Todavía no hay nada registrado.",
+  "Total pieces off the presses each week — overall throughput.":
+    "Total de piezas salidas de las prensas cada semana — producción general.",
+  "Screens made each week, with reshoots flagged. Throughput, not timing.":
+    "Pantallas hechas cada semana, con las repetidas marcadas. Producción, no tiempos.",
+  "Share of press jobs with a matching screen-room entry.":
+    "Parte de los trabajos de prensa con una entrada correspondiente del cuarto de pantallas.",
+  
+  "The same minutes, grouped by the press instead of the person. Read the two together: a press that runs high under everyone is the machine, not the crew.":
+    "Los mismos minutos, agrupados por prensa en lugar de por persona. Léelas juntas: una prensa que sale alta con todos es la máquina, no la gente.",
+  "Share of jobs the floor ran exactly as the art room released it. This is the rotation tool grading itself: a falling line is the tool getting it wrong, not the floor getting it wrong.":
+    "Parte de los trabajos que el piso corrió exactamente como arte los liberó. Aquí la herramienta se califica a sí misma: una línea que baja es la herramienta equivocándose, no el piso.",
+  "Delay reasons ranked by how many jobs hit them that week. Scrub or press play to watch them climb and fall week to week. A write-in under \"Other\" is listed by what the operator actually typed.":
+    "Razones de retraso ordenadas por cuántos trabajos las tuvieron esa semana. Arrastra o dale reproducir para verlas subir y bajar semana a semana. Lo escrito en \"Otro\" se lista tal como lo escribió el operador.",
+  "What's actually being logged":"Qué se está registrando de verdad",
+  "Every average above stands on the share of jobs that fed it. Latest week.":
+    "Cada promedio de arriba depende de la parte de los trabajos que lo alimentó. Última semana.",
+  "Setup timer run":"Cronómetro de setup usado",
+  "Pieces counted":"Piezas contadas",
+  "Print order answered":"Orden de impresión contestada",
+  "How to use this":"Cómo usar esto",
+  "Practice mode":"Modo práctica",
+  "close":"cerrar",
+  "Practice checklist":"Lista de práctica",
+  "Checklist":"Lista",
+  "Print order — look up a job and read the order art released.":
+    "Orden de impresión — busca un trabajo y lee el orden que arte liberó.",
+  "Press log — time the setup and the run, and record what the job cost.":
+    "Registro de prensa — toma el tiempo del setup y de la corrida, y anota lo que costó el trabajo.",
+  "Screen room — log the screens you made and how long they took.":
+    "Cuarto de pantallas — anota las pantallas que hiciste y cuánto tardaron.",
+  "Numbers — your own day, and this press against the target.":
+    "Números — tu propio día, y esta prensa contra la meta.",
+  "Dashboard — how the floor is trending.":
+    "Panel — cómo va el piso.",
+  "Look up a job":"Busca un trabajo",
+  "Read the print order":"Lee el orden de impresión",
+  "Say what you ran":"Di qué corriste",
+  "Run the Setup timer, then stop it":"Corre el cronómetro de Setup y párenlo",
+  "Run the Run timer, then stop it":"Corre el cronómetro de Corrida y párenlo",
+  "Tap an activity":"Toca una actividad",
+  "Tap a delay or a problem":"Toca un retraso o un problema",
+  "Enter the pieces":"Escribe las piezas",
+  "Submit the job":"Envía el trabajo",
+  "Enter an order number":"Escribe un número de orden",
+  "Add a second screen":"Agrega una segunda pantalla",
+  "Give every screen a mesh":"Dale malla a cada pantalla",
+  "Mark one as a reshoot":"Marca una para repetir",
+  "Run the Prep timer, then stop it":"Corre el cronómetro de Preparación y párenlo",
+  "Run the Finish timer, then stop it":"Corre el cronómetro de Terminado y párenlo",
+  "Tap a problem":"Toca un problema",
+  "Submit":"Enviar",
+  "All done — that is the whole job":"Listo — ese es el trabajo completo",
+  "Use in practice mode: Nothing is saved.":"Uso en modo práctica: No se guarda nada.",
+  "Leave practice":"Salir de la práctica",
+  "Try these three":"Prueba estos tres",
+  "— released by art":"— liberado por arte",
+  "— two print locations":"— dos ubicaciones de impresión",
+  "— art changed the order":"— arte cambió el orden",
+  "help":"ayuda",
+  /* the five steps — the Spanish side names the Spanish buttons, because
+     this is what a tablet set to Spanish actually shows */
+  "Find the job":"Busca el trabajo",
+  "Type the order number and tap GO.":"Escribe el número de orden y toca IR.",
+  "Read the print order":"Lee el orden de impresión",
+  "Green bar means run it exactly as shown. Grey bar means art has not released it yet.":
+    "Barra verde: córrelo tal como se muestra. Barra gris: arte todavía no lo ha liberado.",
+  "While you set up":"Mientras montas",
+  "Tap START on Setup. Tap STOP when the press is ready to run.":
+    "Toca INICIAR en Setup. Toca PARAR cuando la prensa esté lista para correr.",
+  "While you print":"Mientras imprimes",
+  "Tap START on Run. Tap STOP when the last piece is printed.":
+    "Toca INICIAR en Corrida. Toca PARAR cuando salga la última pieza.",
+  "Say what you ran":"Di qué corriste",
+  "Tap Ran it as shown, or Changed the order and fix the list.":
+    "Toca Lo corrí así, o Cambié el orden y arregla la lista.",
+  "When the job is off the press":"Cuando el trabajo sale de la prensa",
+  "Type the pieces, then tap Submit job. Once per job, at the end.":
+    "Escribe las piezas y toca Enviar trabajo. Una sola vez por trabajo, al final.",
+  "Read the four numbers on top":"Lee los cuatro números de arriba",
+  "Setup min/screen, jobs at target, delay share of hours, and this week's jobs.":
+    "Setup min/pantalla, trabajos en la meta, parte de las horas en retraso, y los trabajos de esta semana.",
+  "Check what is being logged":"Revisa qué se está registrando",
+  "The card near the bottom says how much of the week the averages stand on. Read that first — a 40% week is 40% of an answer.":
+    "La tarjeta de abajo dice sobre cuánto de la semana se apoyan los promedios. Léela primero — una semana al 40% es el 40% de una respuesta.",
+  "12 wk or All":"12 sem o Todo",
+  "Every chart toggles between the last twelve weeks and everything logged.":
+    "Cada gráfica cambia entre las últimas doce semanas y todo lo registrado.",
+  "By operator and by press":"Por operador y por prensa",
+  "Read those two together. A press that runs high under everybody is the machine, not the crew.":
+    "Lee esas dos juntas. Una prensa que sale alta con todos es la máquina, no la gente.",
+  "Scrub the delay chart":"Arrastra la gráfica de retrasos",
+  "Drag the slider or press play to watch the delay reasons climb and fall week to week.":
+    "Arrastra la barra o dale reproducir para ver las razones de retraso subir y bajar semana a semana.",
+  "Start the job":"Empieza el trabajo",
+  "Type the order number.":"Escribe el número de orden.",
+  "Add the screens":"Agrega las pantallas",
+  "One per screen, with its mesh. Mark any that are reshoots.":
+    "Una por pantalla, con su malla. Marca las que hay que repetir.",
+  "While you make them":"Mientras las haces",
+  "Tap START on Prep. Tap STOP when they are done.":
+    "Toca INICIAR en Preparación. Toca PARAR cuando estén listas.",
+  "Tap anything that went wrong. Other takes a few words.":
+    "Toca lo que salió mal. Otro acepta unas palabras.",
+  "When the screens go to the press":"Cuando las pantallas se van a la prensa",
+  "Tap Submit. Once per job, at the end.":"Toca Enviar. Una sola vez por trabajo, al final.",
+  "Manager":"Gerente",
+  "PRODUCTION":"PRODUCCIÓN"
+});
+const ES_N_DASH = {
+  "Minutes to set up one screen. Lower is better. Dashed line is the target of #. Bold line is the #-week average; the faint line is each week exactly.":
+    "Minutos para montar una pantalla. Menos es mejor. La línea punteada es la meta de #. La línea gruesa es el promedio de # semanas; la tenue es cada semana exacta.",
+  "Share of jobs set up in # min/screen or less. Higher is better. Bold line is the #-week average.":
+    "Parte de los trabajos montados en # min/pantalla o menos. Más es mejor. La línea gruesa es el promedio de # semanas.",
+  "Min/screen each week. Dashed line is the # target. Pick one operator to show their own progress against their own #-week average.":
+    "Min/pantalla cada semana. La línea punteada es la meta de #. Escoge un operador para ver su propio avance contra su propio promedio de # semanas.",
+  "target #":"meta #",
+  "≤ # min/screen":"≤ # min/pantalla",
+  "# jobs · week of #/#":"# trabajos · semana del #/#",
+  "# job · week of #/#":"# trabajo · semana del #/#",
+  "#% delay":"#% de retraso",
+  "Time lost to waiting, as a percent of hours worked. Lower is better. Bold line is the #-week average.":
+    "Tiempo perdido esperando, como porcentaje de las horas trabajadas. Menos es mejor. La línea gruesa es el promedio de # semanas.",
+  "target # ·":"meta # ·",
+  "≤ # min/screen ·":"≤ # min/pantalla ·",
+  "since #/#":"desde #/#",
+  "# pieces printed":"# piezas impresas",
+  "— since #/#":"— desde #/#"
+};
+
+/* print-location labels — they come off the proof, but these few are fixed */
+Object.assign(ES, {
+  "Front Center":"Frente centro", "Center Chest":"Pecho centro",
+  "Left Chest":"Pecho izquierdo", "Right Chest":"Pecho derecho",
+  "Full Back":"Espalda completa", "Upper Back":"Espalda arriba",
+  "Left Sleeve":"Manga izquierda", "Right Sleeve":"Manga derecha",
+  "Front":"Frente", "Back":"Espalda", "Yoke":"Canesú", "Hood":"Capucha"
+});
+
+let LANG = "en";
+try{ LANG = LS.get("pp_lang") || "en"; }catch(e){}
+
+function T(s){
+  if(LANG!=="es" || s==null) return s;
+  const raw = String(s), k = raw.trim();
+  if(!k) return s;
+  const lead = raw.slice(0, raw.length-raw.trimStart().length);
+  const tail = raw.slice(raw.trimEnd().length);
+  const done = v => lead+v+tail;
+
+  if(ES[k] != null) return done(ES[k]);
+
+  const nums=[];
+  const skel = k.replace(/\d[\d,]*(?:\.\d+)?/g, m=>{nums.push(m); return "#";});
+  const nTab = ES_N[skel] != null ? ES_N[skel]
+             : (typeof ES_N_DASH !== "undefined" ? ES_N_DASH[skel] : null);
+  if(nTab != null){ let i=0; return done(nTab.replace(/#/g, ()=>nums[i++])); }
+
+  for(const [rx,fn] of ES_RX){ const m = raw.match(rx); if(m) return fn(m); }
+  return s;
+}
+
+/* --------------------------------------------------------------------------
+   Applying it. Every render function in this file writes plain English; this
+   walks what they wrote and swaps it. Originals are kept so EN|ES flips both
+   ways without reloading and without losing a half-entered form.
+   -------------------------------------------------------------------------- */
+const I18N_ATTR = ["placeholder","title","aria-label"];
+let TRACK = [], i18nBusy = false, OBS = null;
+
+function i18nText(n){
+  if(!n.data || !n.data.trim()) return;
+  const out = T(n.data);
+  if(out === n.data) return;
+  TRACK.push({n, a:null, o:n.data});
+  i18nBusy = true; n.data = out; i18nBusy = false;
+}
+function i18nEl(e){
+  for(const a of I18N_ATTR){
+    if(!e.hasAttribute || !e.hasAttribute(a)) continue;
+    const v = e.getAttribute(a), out = T(v);
+    if(out === v) continue;
+    TRACK.push({n:e, a, o:v});
+    i18nBusy = true; e.setAttribute(a, out); i18nBusy = false;
+  }
+}
+function i18nScan(root){
+  if(LANG !== "es" || !root) return;
+  if(root.nodeType === 3){ i18nText(root); return; }
+  if(root.nodeType !== 1) return;
+  i18nEl(root);
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT|NodeFilter.SHOW_ELEMENT);
+  let n; while((n = w.nextNode())){ n.nodeType===3 ? i18nText(n) : i18nEl(n); }
+}
+function i18nRevert(){
+  i18nBusy = true;
+  for(const t of TRACK){
+    try{ t.a ? t.n.setAttribute(t.a, t.o) : (t.n.data = t.o); }catch(e){}
+  }
+  i18nBusy = false; TRACK = [];
+}
+function i18nStart(){
+  if(OBS) return;
+  i18nScan(document.body);
+  OBS = new MutationObserver(ms=>{
+    if(i18nBusy) return;
+    for(const m of ms){
+      if(m.type === "characterData") i18nText(m.target);
+      else m.addedNodes.forEach(i18nScan);
+    }
+    if(TRACK.length > 4000) TRACK = TRACK.filter(t=>t.n.isConnected);
+  });
+  OBS.observe(document.body, {childList:true, subtree:true, characterData:true});
+}
+function setLang(v){
+  v = (v === "es") ? "es" : "en";
+  if(v === LANG) return;
+  try{ LS.set("pp_lang", v); }catch(e){}
+  if(v === "en"){
+    if(OBS){ OBS.disconnect(); OBS = null; }
+    LANG = "en"; i18nRevert();
+  } else {
+    LANG = "es"; i18nStart();
+  }
+  document.documentElement.lang = LANG;
+  paintBar();
+}
+/* confirm() is the one string the observer cannot see */
+const _confirm = window.confirm.bind(window);
+window.confirm = m => _confirm(T(m));
+
+/* ========================= modal ========================= */
+function modal(html){$("#modalBox").innerHTML=html; $("#modal").classList.add("on");}
+function closeModal(){$("#modal").classList.remove("on"); $("#modalBox").innerHTML="";}
+
+/* ========================= tabs ========================= */
+$$("#tabs button").forEach(b=>b.onclick=()=>{
+  $$("#tabs button").forEach(x=>x.classList.toggle("on",x===b));
+  $$(".view").forEach(v=>v.classList.toggle("on", v.id==="v-"+b.dataset.v));
+  document.querySelector("main").scrollTop=0;
+  if(b.dataset.v==="num") loadKpis();
+  if(b.dataset.v==="dash") loadDash(false);
+  paintPageWhat();
+});
+
+/* ==========================================================================
+   TIMERS
+   Absolute timestamps only. A setInterval does NOT fire while an Android
+   tablet sleeps, so elapsed is always (accum + (now - startedAt)) and the
+   visibilitychange handler repaints on wake. Three guards on runaways:
+   a check-in prompt, a pause-and-hold, and a hard ceiling that FLAGS
+   (never clips) the value.
+   ========================================================================== */
+function mkTimer(key,name,ceilingFn){
+  return {key,name,ceilingFn, accum:0, startedAt:0, running:false,
+          flagged:false, lastCheckin:0};
+}
+function tElapsed(t){return t.accum + (t.running ? now()-t.startedAt : 0);}
+function tToggle(t){
+  if(t.running){ t.accum=tElapsed(t); t.running=false; t.startedAt=0; }
+  else { t.startedAt=now(); t.running=true; t.lastCheckin=now(); }
+  save(); paintTimers();
+}
+function tReset(t){t.accum=0;t.startedAt=0;t.running=false;t.flagged=false;}
+function tCeiling(t){return t.ceilingFn ? t.ceilingFn() : Infinity;}
+
+function timerRow(host,t){
+  const over = mins(tElapsed(t)) > tCeiling(t);
+  if(over) t.flagged = true;
+  const d = el("div","timer"+(t.running?" run":"")+(t.flagged?" over":""));
+  const nm = el("div","nm"); nm.appendChild(document.createTextNode(t.name));
+  if(t.flagged){ const p=el("span","pill bad","OVER"); p.style.marginLeft="10px"; nm.appendChild(p); }
+  d.appendChild(nm);
+  d.appendChild(el("div","tv",hms(tElapsed(t))));
+  const b = el("button","go", t.running ? "STOP" : (tElapsed(t)?"RESUME":"START"));
+  b.onclick = ()=>tToggle(t);
+  d.appendChild(b);
+  host.innerHTML=""; host.appendChild(d);
+}
+
+/* the four press-side + screen-room timers */
+const PT = {
+  setup: mkTimer("setup","Setup", ()=>{
+    const c = parseInt($("#p_colors").value||"0",10);
+    return (c>0? c : 1) * K.SETUP_CEILING_MIN_PER_SCREEN;
+  }),
+  run:   mkTimer("run","Run",  ()=>K.RUN_CEILING_MIN),
+  wait:  mkTimer("wait","Waiting (press idle)", ()=>K.WAIT_CEILING_MIN)
+};
+/* prep/finish are re-pointed at the active screen-room job's own clocks
+   by syncJobTimers(); shift is the one standalone screen-room timer. */
+const DT = {
+  prep:   mkTimer("prep","Prep",   ()=>K.PREP_CEILING_MIN),
+  finish: mkTimer("finish","Finish",()=>K.PREP_CEILING_MIN),
+  shift:  mkTimer("shift","Shift task",()=>K.PREP_CEILING_MIN)
+};
+function paintTimers(){
+  timerRow($("#t_setup"),PT.setup);
+  timerRow($("#t_run"),PT.run);
+  timerRow($("#t_wait"),PT.wait);
+  timerRow($("#t_prep"),DT.prep);
+  timerRow($("#t_finish"),DT.finish);
+  timerRow($("#t_shift"),DT.shift);
+  paintRate();
+}
+function paintRate(){
+  const c=parseInt($("#p_colors").value||"0",10);
+  const m=mins(tElapsed(PT.setup));
+  if(!c||!m){$("#rateNote").textContent="";return;}
+  const r=m/c;
+  $("#rateNote").textContent =
+    "Setup " + r.toFixed(1) + " min/screen · target " + K.SETUP_TARGET_MIN_PER_SCREEN +
+    " · flag over " + K.SETUP_CEILING_MIN_PER_SCREEN;
+}
+
+/* --- check-in: a self-reported timer's failure mode is being left running --- */
+function checkin(){
+  // every job's clocks, not just the visible tab's — a parked job is exactly
+  // where a timer gets left running
+  const all = [PT.setup,PT.run,PT.wait,DT.shift]
+    .concat(DJOBS.flatMap(j=>[j.prep,j.finish]));
+  const running = all.filter(t=>t.running);
+  for(const t of running){
+    const since = mins(now()-(t.lastCheckin||t.startedAt));
+    if(since >= (t.lastCheckin===t.startedAt ? K.CHECKIN_AFTER_MIN : K.CHECKIN_REPEAT_MIN)){
+      t.lastCheckin = now();
+      modal(`<h3>Still on ${esc(t.name)}?</h3>
+        <p class="muted">It has been running ${hms(tElapsed(t))}.</p>
+        <button class="btn good lg" id="ci_yes">Yes — keep running</button>
+        <button class="btn bad lg" id="ci_no" style="margin-top:12px">No — stop it and flag</button>
+        <button class="btn ghost" id="ci_hold" style="margin-top:12px">Pause and hold</button>`);
+      $("#ci_yes").onclick=()=>{closeModal();};
+      $("#ci_no").onclick=()=>{t.accum=tElapsed(t);t.running=false;t.startedAt=0;
+                               t.flagged=true;save();paintTimers();closeModal();
+                               toast("Stopped and flagged","bad");};
+      $("#ci_hold").onclick=()=>{t.accum=tElapsed(t);t.running=false;t.startedAt=0;
+                                 save();paintTimers();closeModal();toast("Held");};
+      return;
+    }
+  }
+}
+
+/* ========================= chips ========================= */
+const picked = {act:new Set(),delay:new Set(),prob:new Set(),mesh:new Set(),dprob:new Set()};
+const otherText = {delay:"",prob:"",dprob:""};
+function buildChips(hostSel,group,kind){
+  const host=$(hostSel); host.innerHTML="";
+  CHIPS[group].forEach(label=>{
+    const b=el("button","chip"+(kind?" "+kind:""),label);
+    if(picked[group].has(label)) b.classList.add("on");
+    b.onclick=()=>{
+      if(picked[group].has(label)){picked[group].delete(label); b.classList.remove("on");}
+      else{
+        picked[group].add(label); b.classList.add("on");
+        // "Other" requires a short write-in — that write-in feeds the periodic
+        // review that graduates recurring answers into their own chip.
+        if(label==="Other") askOther(group);
+      }
+      save();
+    };
+    host.appendChild(b);
+  });
+}
+function askOther(group){
+  modal(`<h3>What was it?</h3>
+    <p class="muted">A few words. These get reviewed and the common ones become their own button.</p>
+    <div class="field"><input id="ot_v" value="${esc(otherText[group]||"")}" placeholder="short description"></div>
+    <button class="btn primary lg" id="ot_ok">Save</button>`);
+  $("#ot_v").focus();
+  $("#ot_ok").onclick=()=>{
+    const v=$("#ot_v").value.trim();
+    if(!v){toast("Needs a few words","bad");return;}
+    otherText[group]=v; save(); closeModal();
+  };
+}
+
+/* ========================= autosave ========================= */
+const SAVE_KEY="pp_floor_state_v1";
+function save(){
+  try{
+    const t=o=>({accum:o.accum,startedAt:o.startedAt,running:o.running,
+                 flagged:o.flagged,lastCheckin:o.lastCheckin});
+    LS.set(SAVE_KEY, JSON.stringify({
+      v:1, saved:now(),
+      f:{order:$("#p_order").value,colors:$("#p_colors").value,pieces:$("#p_pieces").value,
+         garment:$("#p_garment").value,notes:$("#p_notes").value,
+         hum:$("#d_hum").value,
+         coat:$("#s_coat").value,reclaim:$("#s_reclaim").value,
+         stretch:$("#s_stretch").value,clean:$("#s_clean").value,dnotes:$("#d_notes").value},
+      dmode, djIdx,
+      DJOBS: DJOBS.map(j=>({id:j.id,order:j.order,screens:j.screens,
+                            prep:t(j.prep),finish:t(j.finish)})),
+      picked:Object.fromEntries(Object.entries(picked).map(([k,v])=>[k,[...v]])),
+      otherText,
+      PT:{setup:t(PT.setup),run:t(PT.run),wait:t(PT.wait)},
+      DT:{prep:t(DT.prep),finish:t(DT.finish),shift:t(DT.shift)},
+      recent, PORTLINK
+    }));
+  }catch(e){}
+}
+function restore(){
+  let d; try{d=JSON.parse(LS.get(SAVE_KEY)||"null");}catch(e){}
+  if(!d) return;
+  const f=d.f||{};
+  const set=(id,v)=>{const n=$(id); if(n&&v!=null)n.value=v;};
+  set("#p_order",f.order);set("#p_colors",f.colors);set("#p_pieces",f.pieces);
+  set("#p_garment",f.garment);set("#p_notes",f.notes);
+  set("#d_hum",f.hum);
+  set("#s_coat",f.coat);set("#s_reclaim",f.reclaim);set("#s_stretch",f.stretch);
+  set("#s_clean",f.clean);set("#d_notes",f.dnotes);
+  dmode = d.dmode||"job"; djIdx = d.djIdx||0;
+  if(d.picked) for(const k in picked) picked[k]=new Set(d.picked[k]||[]);
+  if(d.otherText) Object.assign(otherText,d.otherText);
+  const ld=(o,s)=>{if(!s)return; o.accum=s.accum||0;o.startedAt=s.startedAt||0;
+                   o.running=!!s.running;o.flagged=!!s.flagged;
+                   o.lastCheckin=s.lastCheckin||0;};
+  if(d.PT){ld(PT.setup,d.PT.setup);ld(PT.run,d.PT.run);ld(PT.wait,d.PT.wait);}
+  if(d.DT){ld(DT.shift,d.DT.shift);}
+  // saved jobs come back as plain data — rehydrate real timer objects
+  if(Array.isArray(d.DJOBS) && d.DJOBS.length){
+    DJOBS = d.DJOBS.map(s=>{
+      const j=newJob();
+      j.id=s.id||j.id; j.order=s.order||"";
+      j.screens=(Array.isArray(s.screens)&&s.screens.length)?s.screens
+                : [{mesh:null,reshoot:false}];
+      ld(j.prep,s.prep); ld(j.finish,s.finish);
+      return j;
+    });
+  }
+  recent = d.recent||[];
+  PORTLINK = d.PORTLINK||null;
+}
+
+/* ==========================================================================
+   ROTATION — talks to the Flask app's /port/predict, same origin.
+   ========================================================================== */
+/* ==========================================================================
+   THE JOB NUMBER — keyed once on the PRESS SIDE, carried across Rotation
+   and Press Log only.
+
+   Deliberately NOT shared with the screen room. The screen room preps a job
+   days before the press runs it — its tabs are future press jobs, and its
+   current job is almost never the one on the press right now. Pushing a
+   number between the two stations would fill the wrong field with a stale
+   order, which is worse than keying it twice. Rotation and Press Log are the
+   same job, same person, same minute, so propagation there is safe.
+
+   Fills EMPTY fields only — anything typed by hand wins.
+   ========================================================================== */
+let JOBNO = "";
+function setJobNo(g, opts){
+  g = String(g||"").trim(); if(!g) return;
+  JOBNO = g;
+  const n=$("#p_order"); if(n && !n.value.trim()) n.value=g;
+  paintJobChip(); save();
+  if(!(opts&&opts.silent)) paintRate();
+}
+function paintJobChip(){
+  const c=$("#jobChip");
+  if(!JOBNO){ c.hidden=true; return; }
+  c.hidden=false;
+  c.innerHTML='<small>JOB</small>'+esc(JOBNO);
+  c.onclick=()=>{
+    $('#tabs button[data-v="rot"]').click();
+    if(!ROT || ROT.graphic!==JOBNO){
+      $("#lookup").classList.remove("mini");
+      $("#jobno").value=JOBNO; predict(JOBNO);
+    }
+  };
+}
+
+let recent = [];
+let ROT = null;      // {graphic, locations:[...], activeIdx}
+let ORDERED = null;  // operator's corrected order when they override
+
+/* --------------------------------------------------------------------------
+   PORTLINK — the join between the rotation and the press log.
+   One job on the press = ONE row in the sheet. The rotation the operator was
+   shown, whether they ran it, and the setup minutes it took all have to land
+   on that same row, or you can never answer "does the predicted rotation cost
+   more or less setup time than the one the floor picks?"
+   Set when a rotation loads, stamped when they agree/override, and shipped
+   with the press-log submit.
+   -------------------------------------------------------------------------- */
+let PORTLINK = null;   // {graphic, location, colors, flashes, garment, method,
+                       //  decision:"agree"|"override"|null, reason, ran}
+function paintLink(){
+  const h=$("#linkBanner"); h.innerHTML="";
+  if(!PORTLINK){
+    const d=el("div","linkbar");
+    d.innerHTML='<div class="t muted">No rotation loaded. '+
+      'Look the job up on ROTATION first and this log fills itself in.</div>';
+    const b=el("button","btn", JOBNO ? "Look up "+JOBNO : "Rotation");
+    b.style.flex="0 0 auto"; b.style.width="auto";
+    b.onclick=()=>{
+      $('#tabs button[data-v="rot"]').click();
+      if(JOBNO){ $("#lookup").classList.remove("mini");
+                 $("#jobno").value=JOBNO; predict(JOBNO); }
+    };
+    d.appendChild(b); h.appendChild(d);
+    return;
+  }
+  const st = PORTLINK.decision;
+  const d=el("div","linkbar"+(st==="agree"?" agreed":st==="override"?" changed":""));
+  const t=el("div","t");
+  t.innerHTML='<b>'+esc(PORTLINK.graphic)+'</b>'+
+    (PORTLINK.location?' · '+esc(PORTLINK.location):'')+
+    ' — '+PORTLINK.colors+' screens · '+PORTLINK.flashes+' flash'+
+    (PORTLINK.flashes===1?'':'es')+
+    (PORTLINK.approvedBy?' · released by '+esc(PORTLINK.approvedBy):' · not released')+
+    '<br><span class="tiny">'+
+    (st==="agree" ? '✓ ran the predicted order'
+     : st==="override" ? '✎ changed ('+esc(PORTLINK.changeType||"order")+') — '+esc(PORTLINK.reason||"")
+     : 'not answered yet — tap ROTATION and say what you ran')+'</span>';
+  d.appendChild(t);
+  const x=el("button","x","✕"); x.title="unlink";
+  x.onclick=()=>{PORTLINK=null;save();paintLink();};
+  d.appendChild(x); h.appendChild(d);
+}
+
+$("#kp").onclick = e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  const k=b.dataset.k, i=$("#jobno");
+  if(k==="del") i.value=i.value.slice(0,-1);
+  else if(k==="go") predict(i.value.trim());
+  else if(i.value.length<10) i.value+=k;
+};
+function paintRecent(){
+  const h=$("#recent"); h.innerHTML="";
+  recent.slice(0,K.RECENT_JOBS).forEach(g=>{
+    const b=el("button","chip",g); b.onclick=()=>{$("#jobno").value=g;predict(g);};
+    h.appendChild(b);
+  });
+}
+/* Looking a job up has to survive a shop floor: a radio that drops for a
+   second, an Apps Script cold start, a tablet that just woke. Three rules,
+   learned the hard way —
+
+   1. NEVER clear a rotation that is already on screen. Losing the steps you
+      were reading because a request blipped is the worst thing this page can
+      do at a press. A failed lookup leaves what is there and says so.
+   2. Retry once before calling it a failure. Most of these are transient.
+   3. Keep the last rotations on the tablet. A job looked up before opens
+      with no connection at all, plainly marked as a saved copy. */
+const ROTCACHE_KEY="pp_rotcache", ROTCACHE_MAX=40;
+function rotCacheGet(g){
+  try{ return (JSON.parse(LS.get(ROTCACHE_KEY)||"{}"))[g]||null; }
+  catch(e){ return null; }
+}
+function rotCachePut(g,d){
+  try{
+    const c=JSON.parse(LS.get(ROTCACHE_KEY)||"{}");
+    c[g]={d, at:now()};
+    const keys=Object.keys(c).sort((a,b)=>(c[b].at||0)-(c[a].at||0)).slice(0,ROTCACHE_MAX);
+    const out={}; keys.forEach(k=>out[k]=c[k]);
+    LS.set(ROTCACHE_KEY, JSON.stringify(out));
+  }catch(e){}
+}
+
+function showRotation(d,g,stale){
+  ROT = {graphic:d.graphic||g, locations:d.locations||[], activeIdx:0};
+  ORDERED = null;
+  recent = [g].concat(recent.filter(x=>x!==g)).slice(0,K.RECENT_JOBS);
+  $("#lookup").classList.add("mini");
+  $("#jobno").value = d.graphic || g;
+  setLink(); setJobNo(d.graphic||g);
+  save(); paintRecent(); paintRotation();
+  if(stale){
+    const b=el("div","warnbox");
+    b.textContent="⚠ Saved copy on this tablet — couldn't reach the release list just now.";
+    $("#rotOut").insertBefore(b, $("#rotOut").firstChild);
+  }
+}
+
+/* A hung request is worse than a failed one — without a deadline the tablet
+   can sit on a spinner for minutes while the operator waits. But some
+   browsers and in-app webviews route fetch through postMessage, and an
+   AbortSignal cannot be cloned across that boundary — the call throws
+   "AbortSignal object could not be cloned" before it ever leaves, so every
+   lookup fails and the deadline we added to protect the operator is what
+   breaks it. Try with the deadline; if the environment refuses the signal,
+   go again without it. Slow beats dead. */
+let ABORT_OK = true;
+async function timedFetch(url){
+  if(ABORT_OK && typeof AbortController!=="undefined"){
+    const ac=new AbortController();
+    const killer=setTimeout(()=>ac.abort(), K.LOOKUP_TIMEOUT_MS);
+    try{
+      return await fetch(url,{cache:"no-store", signal:ac.signal});
+    }catch(e){
+      if(/clone|DataClone|postMessage/i.test(String(e && (e.message||e.name)))){
+        ABORT_OK=false;                       // this browser cannot take one
+        return fetch(url,{cache:"no-store"});
+      }
+      throw e;
+    }finally{ clearTimeout(killer); }
+  }
+  return fetch(url,{cache:"no-store"});
+}
+
+async function predict(g){
+  if(!g){toast("Enter a number","bad");return;}
+  const viaSheet = rotationSource()==="sheet";
+  const base = S.sheetUrl||CFG.SHEET_URL;
+  if(viaSheet && !base){
+    setSync("err");
+    $("#rotOut").innerHTML='<div class="warnbox">This tablet has no backend set. Tap ⚙.</div>';
+    return;
+  }
+  const url = viaSheet
+    ? base+"?fn=rotation&graphic="+encodeURIComponent(g)
+    : CFG.PORT_BASE+"/port/predict?graphic="+encodeURIComponent(g);
+
+  const showing = !!ROT;                       // something already on screen
+  setSync("busy");
+  if(!showing) $("#rotOut").innerHTML='<div class="card muted">Looking up '+esc(g)+'…</div>';
+  else toast("Looking up "+g+"…");
+
+  let lastErr=null;
+  for(let attempt=0; attempt<2; attempt++){
+    if(attempt) await new Promise(r=>setTimeout(r,900));
+    try{
+      const r = await timedFetch(url);
+      /* Read as text first. A web server that is up but unhappy answers with
+         an HTML error page, and r.json() turns that into a SyntaxError about
+         an unexpected "<" — which tells the operator nothing and tells
+         whoever is fixing it the wrong thing, because the tablet DID reach
+         the sheet. Knowing the difference is the whole diagnosis. */
+      const txt = await r.text();
+      let d;
+      try { d = JSON.parse(txt); }
+      catch(_){
+        const e2 = new Error(/^\s*</.test(txt)
+          ? "the sheet answered with a web page instead of data"
+          : "the sheet answered with something that is not data");
+        e2.notJson = true; throw e2;
+      }
+      if(!d.ok){                                // reached it; it just has nothing
+        setSync("ok");
+        if(showing) toast(d.message||"No rotation for that number","bad");
+        else $("#rotOut").innerHTML='<div class="warnbox">'+
+               esc(d.message||"No rotation for that number.")+'</div>';
+        return;
+      }
+      setSync("ok"); rotCachePut(g,d); showRotation(d,g,false);
+      return;
+    }catch(e){ lastErr=e; }
+  }
+
+  // both tries failed — fall back to this tablet's own copy before complaining
+  setSync("err");
+  const cached = rotCacheGet(g);
+  if(cached && cached.d){ showRotation(cached.d,g,true); return; }
+  /* The operator gets one sentence they can act on. The exception text is
+     for whoever is fixing it, and goes to the console, not to the press. */
+  if(lastErr) try{ console.error("[pp-floor] lookup failed:", lastErr); }catch(e){}
+  const msg = (lastErr && lastErr.notJson)
+    ? "The sheet answered with an error page, not the job. It needs redeploying — show this to whoever set up the tablets."
+    : viaSheet
+      ? "Can't reach the job list. Check this tablet's wifi."
+      : "Can't reach the job list. Check shop wifi.";
+  if(showing){ toast(msg,"bad"); return; }      // keep what they were reading
+  $("#rotOut").innerHTML='<div class="warnbox">'+msg+'</div>';
+}
+
+function activeLoc(){return ROT && ROT.locations[ROT.activeIdx];}
+/* The released rotation wins over the raw prediction. When the art room
+   approves in the dashboard it POSTs /port/approve, and /port/predict hands
+   that back on the location as `approved`. The floor should be looking at
+   what art signed off on, not at what the rules guessed. */
+function stepsOf(loc){
+  if(loc && loc.approved && (loc.approved.rotation||[]).length)
+    return loc.approved.rotation;
+  return (loc && loc.result && loc.result.rotation) || [];
+}
+function approvalOf(loc){return loc && loc.approved ? loc.approved : null;}
+/* Rule codes (R1, R5a, R10…) are the rotation tool's own bookkeeping. They
+   mean nothing standing at a press, so they are stripped out of every note
+   and warning before anything reaches the operator. */
+const plain = t => String(t==null?"":t)
+  .replace(/\s*\(R\d+[a-z]?\)/g,"").replace(/\s{2,}/g," ").trim();
+function flashCount(steps){return steps.filter(s=>s.flash).length;}
+/* The rotation is the source of truth for the fields the press log used to
+   ask the operator to key in by hand: the order number, how many screens,
+   and the garment. Every step in a rotation IS a screen, underbase included,
+   so colors = rotation.length — which is also the divisor for min/screen. */
+function setLink(){
+  const loc=activeLoc(); if(!loc||!loc.result) return;
+  const R=loc.result, J=R.job||{};
+  const steps=stepsOf(loc);
+  const ap=approvalOf(loc);
+  const keep = PORTLINK && PORTLINK.graphic===ROT.graphic
+               && PORTLINK.location===(loc.label||"");
+  PORTLINK={
+    graphic:ROT.graphic, location:loc.label||"",
+    colors:steps.length, flashes:R.flashes||0,
+    garment:[J.body,J.fabric].filter(Boolean).join(" / "),
+    method:J.method||"", baseStrength:J.base_strength,
+    predicted:steps.map((s,i)=>(i+1)+". "+(s.plate||s.ink)).join("  |  "),
+    // The floor is told the art room released it, never who. Whatever the
+    // backend puts in approved_by is deliberately not rendered — an operator
+    // reading a colleague's name next to a rotation turns a process question
+    // into a personal one.
+    approvedBy: ap ? "Art"+(ap.from==="corrected"?" (corrected)":"") : "",
+    decision: keep?PORTLINK.decision:null,
+    reason: keep?PORTLINK.reason:"", ran: keep?PORTLINK.ran:""
+  };
+  adoptJob();
+  paintLink(); paintRate();
+}
+
+/* Looking a job up on ROTATION means the press is about to run THAT job, so
+   the press log follows it — order, screens and garment. The earlier rule
+   ("never overwrite a filled field") was wrong: it cannot tell a value the
+   operator typed from one left behind by the last job, so a stale order
+   number sat there while the tablet showed a different rotation.
+
+   The one case worth protecting is a job already underway. If the press log
+   is carrying time or entries for a DIFFERENT order, switching is a question,
+   not a silent overwrite. */
+function pressLogBusy(){
+  return !!(tElapsed(PT.setup) || tElapsed(PT.run) || tElapsed(PT.wait) ||
+            $("#p_pieces").value.trim() || $("#p_notes").value.trim() ||
+            picked.act.size || picked.delay.size || picked.prob.size);
+}
+function adoptJob(){
+  if(!PORTLINK) return;
+  const g=PORTLINK.graphic, cur=$("#p_order").value.trim();
+  const apply=()=>{
+    $("#p_order").value=g;
+    $("#p_colors").value=String(PORTLINK.colors);
+    $("#p_garment").value=PORTLINK.garment;
+    paintRate(); save();
+  };
+  if(cur===g){
+    // same job — fill only what is blank, never clobber a hand correction
+    if(!$("#p_colors").value.trim()) $("#p_colors").value=String(PORTLINK.colors);
+    if(!$("#p_garment").value.trim()) $("#p_garment").value=PORTLINK.garment;
+    paintRate(); return;
+  }
+  if(!cur || !pressLogBusy()){ apply(); return; }
+  const held=PT.setup, t=hms(tElapsed(held));
+  /* Said plainly: this is the press log being asked to move to a different
+     job, and the only thing at stake is the time and entries already on the
+     old one. "Start 533000?" on its own tells an operator nothing. */
+  modal(`<h3>Move the press log to ${esc(g)}?</h3>
+    <p class="muted">The press log is still on order <b>${esc(cur)}</b>${
+      tElapsed(held)?", with "+t+" of setup time on it":""}.
+      Moving to ${esc(g)} clears what is there and starts fresh.</p>
+    <button class="btn primary lg" id="aj_new">Move to ${esc(g)}</button>
+    <button class="btn ghost" id="aj_keep" style="margin-top:12px">Stay on ${esc(cur)}</button>`);
+  $("#aj_new").onclick=()=>{
+    const link=PORTLINK;      // clearPress() drops it; put it straight back
+    clearPress(); PORTLINK=link; apply(); paintLink(); closeModal();
+  };
+  $("#aj_keep").onclick=()=>{ closeModal(); };
+}
+function roleOf(s){
+  const n=String(s.plate||s.ink||"").toLowerCase();
+  if(n.includes("underbase")||n==="base") return "base";
+  if(n.includes("wht")||n.includes("white")) return "white";
+  if(n.includes("blk")||n.includes("black")) return "black";
+  return "spot";
+}
+function paintRotation(){
+  const out=$("#rotOut"); out.innerHTML="";
+  if(!ROT) return;
+  const good = ROT.locations.filter(l=>l.result);
+  if(!good.length){ out.innerHTML='<div class="warnbox">No readable rotation on this proof.</div>'; return; }
+
+  if(ROT.locations.length>1){
+    const tabs=el("div","loctabs");
+    ROT.locations.forEach((l,i)=>{
+      const b=el("button","chip"+(i===ROT.activeIdx?" on":""), l.label||("Location "+(i+1)));
+      b.onclick=()=>{ROT.activeIdx=i;ORDERED=null;setLink();paintRotation();};
+      tabs.appendChild(b);
+    });
+    out.appendChild(tabs);
+  }
+  const loc=activeLoc();
+  if(!loc || !loc.result){ out.innerHTML+='<div class="warnbox">'+esc(loc&&loc.error||"Nothing for this location.")+'</div>'; return; }
+  const R=loc.result, J=R.job||{};
+
+  // job header
+  const hd=el("div","card");
+  const thumb = loc.thumb || (loc.result && loc.result.thumb) || "";
+  hd.innerHTML =
+    '<div class="jobrow"><div class="facts">'+
+    '<div style="font-size:30px;font-weight:800">'+esc(ROT.graphic)+'</div>'+
+    '<div class="muted" style="margin-top:6px">'+esc(J.body||"?")+' · '+esc(J.fabric||"?")+
+    ' · '+esc(J.method||"?")+'</div>'+
+    '<div class="muted" style="margin-top:4px">Base '+esc(J.base_strength)+
+    '% · '+esc(R.flashes)+' flash'+(R.flashes===1?"":"es")+'</div>'+
+    /* The proof states one dimension and which way it runs. On a "Wide"
+       proof that number IS the width, which is what picks the sleeve board;
+       on a "Tall" proof it is the height and the proof does not state a
+       width. Say which it is rather than printing a bare number. */
+    (loc.size_in
+      ? '<div class="sizeline">'+esc(loc.size_in)+'"'+
+        (String(loc.dim||"").toLowerCase()==="wide" ? ' wide' : '')+
+        (String(loc.dim||"").toLowerCase()==="tall"
+          ? ' tall<span> — proof gives no width</span>' : '')+'</div>'
+      : '')+
+    '<div class="tiny" style="margin-top:8px">Source: '+esc(loc.source||"proof")+'</div>'+
+    '</div>'+
+    (thumb
+      ? '<div class="thumb"><img alt="graphic '+esc(ROT.graphic)+'" src="data:image/jpeg;base64,'+esc(thumb)+'"></div>'
+      : '<div class="thumb none">no art preview<br>for this release</div>')+
+    '</div>';
+  out.appendChild(hd);
+
+  // art-room release state — the first thing the operator should read
+  const ap=approvalOf(loc);
+  /* The top line answers the only question an operator has walking up to the
+     press: can I run what is on this screen? Both released states answer yes
+     — the steps shown ARE what art signed off on, whether art took the tool's
+     order or fixed it. The fact that they fixed it is provenance, not a
+     warning about the thing you are looking at, so it goes below the steps. */
+  const rel=el("div","relbar"+(ap?" ok":" none"));
+  if(ap){
+    rel.innerHTML='<b>✓ RUN THIS AS SHOWN</b>'+
+      '<span class="tiny"> · released by Art · '+esc(ap.ts||"")+'</span>';
+  } else {
+    rel.innerHTML='<b>NOT RELEASED YET</b><br>'+
+      'This is the tool\'s suggestion. Art has not signed off on it.';
+  }
+  out.appendChild(rel);
+
+  (R.warnings||[]).forEach(w=>{
+    const b=el("div","warnbox"); b.textContent="⚠ "+plain(w); out.appendChild(b);
+  });
+
+  const list = ORDERED || stepsOf(loc);
+  const conf = R.confidence||{};
+
+  if(ORDERED){
+    // Most presses are set for two flashes. A third is not forbidden, but the
+    // operator should be told, not silently allowed to log something the press
+    // cannot actually do.
+    const n=flashCount(list);
+    const fb=el("div","flashbar"+(n>2?" over":""));
+    fb.innerHTML="<b>"+n+"</b> flash"+(n===1?"":"es")+
+      (n>2 ? " — most presses are set for 2. Sure?" : "");
+    out.appendChild(fb);
+  }
+  list.forEach((s,i)=>{
+    const role=roleOf(s);
+    const d=el("div","step "+role);
+    d.appendChild(el("div","pos",String(i+1)));
+    const mid=el("div","mid");
+    mid.appendChild(el("div","nm", s.plate||s.ink||"—"));
+    const sub=[];
+    if(s.mesh) sub.push(s.mesh+" mesh");
+    if(s.ink && s.plate && s.ink!==s.plate) sub.push(s.ink);
+    mid.appendChild(el("div","sub", sub.join(" · ")));
+    const bg=el("div","badges");
+    // while correcting, the toggles below already show this state
+    if(!ORDERED){
+      if(s.flash) bg.appendChild(el("span","bdg f","FLASH"));
+      if(s.mash)  bg.appendChild(el("span","bdg m","MASH"));
+      if(s.cool)  bg.appendChild(el("span","bdg c","COOL"));
+    }
+    // Confidence shows only while a rotation is unreleased. Once art has
+    // signed off, their call stands and the tool's certainty is moot.
+    /* What the tool is unsure about is where the step sits in the sequence,
+       never the ink or the mesh. It has to be said in the shop's own words:
+       "order" on its own reads as the customer's order, so the badge says
+       PRINT ORDER — the floor's name for the sequence, and the tool's. */
+    if(!ap && s.rule){
+      const c=String(conf[s.rule]||"").split(" ")[0];
+      if(c==="low")    bg.appendChild(el("span","conf low","LOW CONFIDENCE — PRINT ORDER"));
+      if(c==="medium") bg.appendChild(el("span","conf medium","MEDIUM CONFIDENCE — PRINT ORDER"));
+    }
+    if(s.note) mid.appendChild(el("div","tiny", plain(s.note)));
+    mid.appendChild(bg);
+    if(ORDERED){
+      /* FLASH, MASH and COOL belong to the step they follow, so toggling one
+         here adds, removes or moves it without disturbing the colour order.
+         COOL marks a head left open to cool — Jedd's ask, because a newer
+         operator running a second flash without an open head after it is a
+         scorch waiting to happen, and a button makes that visible. */
+      const ctl=el("div","ctl");
+      [["FLASH","flash",""],["MASH","mash","m"],["COOL","cool","c"]]
+        .forEach(([label,key,cls])=>{
+          const t=el("button","tgl "+cls+(s[key]?" on":""),label);
+          t.onclick=()=>{s[key]=!s[key];paintRotation();};
+          ctl.appendChild(t);
+        });
+      mid.appendChild(ctl);
+      const ed=el("button","editbtn","Change ink or mesh");
+      ed.onclick=()=>editStep(s,i);
+      mid.appendChild(ed);
+    }
+    d.appendChild(mid);
+    if(ORDERED){
+      const mv=el("div","mv");
+      const up=el("button",null,"▲"), dn=el("button",null,"▼");
+      up.disabled=i===0; dn.disabled=i===list.length-1;
+      up.onclick=()=>{const a=ORDERED;[a[i-1],a[i]]=[a[i],a[i-1]];paintRotation();};
+      dn.onclick=()=>{const a=ORDERED;[a[i+1],a[i]]=[a[i],a[i+1]];paintRotation();};
+      const rm=el("button","rm","✕"); rm.title="remove this screen";
+      rm.disabled=list.length<=1;
+      rm.onclick=()=>{
+        if(!confirm("Remove "+(s.plate||s.ink||"this screen")+"?")) return;
+        ORDERED.splice(i,1); paintRotation();
+      };
+      mv.appendChild(up);mv.appendChild(dn);mv.appendChild(rm);d.appendChild(mv);
+    }
+    out.appendChild(d);
+  });
+
+  // provenance, after the thing it describes
+  if(ap && ap.from==="corrected" && !ORDERED){
+    const n=el("div","relbar fixed"); n.style.marginTop="14px";
+    n.innerHTML='<b>Art changed this from the tool\'s order.</b><br>'+
+      esc(plain(ap.note||""));
+    out.appendChild(n);
+  }
+
+  if(!ORDERED){
+    const a=el("button","btn good lg","✓ Ran it as shown"); a.style.marginTop="8px";
+    a.onclick=()=>sendFeedback(true,"","");
+    const b=el("button","btn lg","Changed the order"); b.style.marginTop="12px";
+    b.onclick=()=>{
+      ORDERED=stepsOf(loc).map(x=>{
+        const c=Object.assign({},x);
+        c._was = x.plate||x.ink||"";   // for telling a rename from a swap
+        c._wasMarks = marksOf(x);
+        return c;
+      });
+      paintRotation();
+    };
+    out.appendChild(a); out.appendChild(b);
+  } else {
+    const add=el("button","btn","+ Add a screen"); add.style.marginTop="4px";
+    add.onclick=()=>{
+      ORDERED.push({ink:"",plate:"",mesh:null,flash:false,mash:false,cool:false});
+      paintRotation();
+      editStep(ORDERED[ORDERED.length-1], ORDERED.length-1);
+    };
+    out.appendChild(add);
+    const p=el("div","muted",
+      "Put it in the order you actually ran. Tap FLASH, MASH or COOL on the step "+
+      "it follows. Change an ink, add a screen, or remove one.");
+    p.style.margin="14px 0 8px"; out.appendChild(p);
+    const done=el("button","btn primary lg","Save what I ran"); done.onclick=askReason;
+    const cx=el("button","btn ghost","Cancel"); cx.style.marginTop="12px";
+    cx.onclick=()=>{ORDERED=null;paintRotation();};
+    out.appendChild(done); out.appendChild(cx);
+  }
+}
+/* Ink swaps happen before a run and screens get added to a job after the
+   proof was cut. Both were unsayable — the corrector could only resequence.
+   One editor covers the ink/PMS label and the mesh; add and remove live on
+   the step card. */
+function editStep(s,i){
+  modal(`<h3>Screen ${i+1}</h3>
+    <div class="field"><label>Ink / PMS</label>
+      <input id="es_ink" value="${esc(s.plate||s.ink||"")}" placeholder="e.g. 186 C, WHT, Underbase"></div>
+    <div class="field"><label>Mesh</label><div class="mesh" id="es_mesh"></div></div>
+    <button class="btn primary lg" id="es_ok">Save</button>
+    <button class="btn ghost" id="es_x" style="margin-top:12px">Cancel</button>`);
+  let mesh = s.mesh ? String(s.mesh) : null;
+  const h=$("#es_mesh");
+  CHIPS.mesh.forEach(v=>{
+    const b=el("button",mesh===v?"on":null,v);
+    b.onclick=()=>{mesh = (mesh===v? null : v);
+      $$("#es_mesh button").forEach(x=>x.classList.toggle("on",x.textContent===mesh));};
+    h.appendChild(b);
+  });
+  $("#es_x").onclick=()=>{
+    // backing out of a screen that was added and never named removes it
+    if(!(s.plate||s.ink)) { const k=ORDERED.indexOf(s); if(k>-1) ORDERED.splice(k,1); }
+    closeModal(); paintRotation();
+  };
+  $("#es_ok").onclick=()=>{
+    const v=$("#es_ink").value.trim();
+    if(!v){toast("The screen needs an ink name","bad");return;}
+    // every screen runs at some mesh, and tapping the selected chip clears it
+    // — so saving without one is almost always a slip, not an intent
+    if(!mesh){toast("Pick a mesh count","bad");return;}
+    s.plate=v; s.ink=v; s.mesh = Number(mesh);
+    closeModal(); paintRotation();
+  };
+}
+
+function correctedText(steps){
+  return steps.map((s,i)=>(i+1)+". "+(s.plate||s.ink)+
+    (s.mesh?" ["+s.mesh+"]":"")+
+    (s.flash?"  *FLASH":"")+(s.mash?"  +MASH":"")+(s.cool?"  ~COOL":"")).join("  |  ");
+}
+/* Was this a real sequencing disagreement, or only a flash call? Worth
+   separating: a floor that keeps adding a flash after the same colour is
+   telling you something different from a floor that keeps resequencing. */
+const marksOf = s => (s.flash?"F":"")+(s.mash?"M":"")+(s.cool?"C":"");
+function whatChanged(loc){
+  const was=stepsOf(loc), now=ORDERED||[];
+  const kinds=[];
+  const survivors=now.filter(s=>s._was);
+
+  // each copied step carries _was (its original name), so an ink swap is told
+  // apart from a removal plus an addition
+  if(now.some(s=>!s._was) || survivors.length!==was.length) kinds.push("screens");
+
+  const survNames=survivors.map(s=>s._was);
+  const expected=was.map(s=>s.plate||s.ink).filter(n=>survNames.indexOf(n)>-1);
+  if(survNames.join("|")!==expected.join("|")) kinds.push("order");
+
+  if(now.some(s=>s._was && (s.plate||s.ink)!==s._was)) kinds.push("ink");
+  // report the marks separately — "they keep adding a COOL" and "they keep
+  // adding a FLASH" are different findings about the press
+  [["flash","F"],["mash","M"],["cool","C"]].forEach(([k,ch])=>{
+    if(now.some(s=>s._was && !!s[k] !== ((s._wasMarks||"").indexOf(ch)>-1)))
+      kinds.push(k);
+  });
+
+  return kinds.length ? kinds.join("+") : "none";
+}
+const REASONS=["Trapping","Keyline / registration","Flash budget","Bleeder color",
+               "Base too heavy","Customer / art call","Press setup","Other"];
+function askReason(){
+  modal(`<h3>Why did it change?</h3>
+    <div class="chips" id="rz"></div>
+    <div class="field" style="margin-top:16px"><label>Anything else</label>
+      <input id="rz_more" placeholder="optional"></div>
+    <button class="btn primary lg" id="rz_ok">Save</button>
+    <button class="btn ghost" id="rz_x" style="margin-top:12px">Back</button>`);
+  const sel=new Set(); const h=$("#rz");
+  REASONS.forEach(r=>{const b=el("button","chip",r);
+    b.onclick=()=>{sel.has(r)?(sel.delete(r),b.classList.remove("on"))
+                            :(sel.add(r),b.classList.add("on"));};
+    h.appendChild(b);});
+  $("#rz_x").onclick=closeModal;
+  $("#rz_ok").onclick=()=>{
+    const kind=whatChanged(activeLoc());
+    if(kind==="none"){
+      toast("Nothing changed — use 'Ran it as shown'","bad"); return;
+    }
+    if(!sel.size){toast("Pick at least one reason","bad");return;}
+    const extra=$("#rz_more").value.trim();
+    closeModal();
+    sendFeedback(false, [...sel].join("; ")+(extra?" — "+extra:""),
+                 correctedText(ORDERED), kind);
+  };
+}
+async function sendFeedback(agree,reason,corrected,kind){
+  const loc=activeLoc(); if(!loc) return;
+  const R=loc.result;
+  const body={
+    graphic:ROT.graphic, agree, reason, corrected,
+    predicted: stepsOf(loc).map(s=>s.plate||s.ink),
+    rotation: (ORDERED||stepsOf(loc)).map(s=>{
+      const c=Object.assign({},s); delete c._was; delete c._wasMarks; return c;
+    }),
+    job: R.job||{}, source: loc.source||"", signals_used: !!R.signals_used
+  };
+  /* On a GitHub Pages tablet there is no /port/feedback to call — the
+     pipeline is unreachable from here. The answer rides on the press-log row
+     instead, which is the better home for it anyway: the floor's decision and
+     the setup minutes it cost end up on the same line. */
+  /* Adding or removing a screen changes the divisor for min/screen. If the
+     count does not follow the correction, every setup number on this job is
+     quietly wrong — so the press log's screen count is re-synced here. */
+  const ranCount = (ORDERED||stepsOf(loc)).length;
+  const syncCount = ()=>{
+    if(!PORTLINK) return;
+    PORTLINK.colors = ranCount;
+    const n=$("#p_colors");
+    if(n && String(n.value).trim()!==String(ranCount)){
+      n.value=String(ranCount); paintRate(); save();
+    }
+  };
+
+  if(rotationSource()==="sheet"){
+    PORTLINK && Object.assign(PORTLINK,{
+      decision: agree?"agree":"override", reason,
+      changeType: agree?"":(kind||""),
+      ran: corrected || PORTLINK.predicted });
+    syncCount();
+    ORDERED=null; paintLink(); paintRotation(); save();
+    toast(agree ? "Saved with this job" : "Override saved with this job","good");
+    return;
+  }
+  setSync("busy");
+  try{
+    const r=await fetch(CFG.PORT_BASE+"/port/feedback",
+      {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(d.ok){
+      setSync("ok");
+      // stamp the join so the press-log row carries the rotation decision
+      if(PORTLINK){
+        PORTLINK.decision = agree ? "agree" : "override";
+        PORTLINK.reason = reason;
+        PORTLINK.changeType = agree ? "" : (kind||"");
+        PORTLINK.ran = corrected || PORTLINK.predicted;
+      }
+      syncCount();
+      ORDERED=null; paintLink(); paintRotation(); save();
+      toast(agree?"Logged — ran as shown":"Logged — override saved","good"); }
+    else { setSync("err"); toast("Not saved: "+(d.message||"error"),"bad"); }
+  }catch(e){ setSync("err"); toast("Not saved — no connection","bad"); }
+}
+
+/* ==========================================================================
+   SUBMIT — Google Apps Script. Column mapping lives in the Apps Script;
+   this end sends NAMED fields only, so a schema change can never silently
+   shift a column here.
+   ========================================================================== */
+async function post(payload){
+  const url = S.sheetUrl || CFG.SHEET_URL;
+  if(!url){ toast("No Apps Script URL set — tap ⚙","bad"); return false; }
+  payload.token = S.token || CFG.SHEET_TOKEN;
+  payload.station = S.station; payload.operator = S.operator;
+  payload.clientTs = new Date().toISOString();
+  setSync("busy");
+  try{
+    // text/plain dodges the CORS preflight Apps Script cannot answer.
+    await fetch(url,{method:"POST",mode:"no-cors",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify(payload)});
+    setSync("ok"); return true;
+  }catch(e){
+    setSync("err");
+    const q=JSON.parse(LS.get("pp_queue")||"[]");
+    q.push(payload); LS.set("pp_queue",JSON.stringify(q));
+    toast("Saved on the tablet — will send when wifi is back","bad");
+    return false;
+  }
+}
+async function flushQueue(){
+  const q=JSON.parse(LS.get("pp_queue")||"[]");
+  if(!q.length) return;
+  const url=S.sheetUrl||CFG.SHEET_URL; if(!url) return;
+  const left=[];
+  for(const p of q){
+    try{ await fetch(url,{method:"POST",mode:"no-cors",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(p)}); }
+    catch(e){ left.push(p); }
+  }
+  LS.set("pp_queue",JSON.stringify(left));
+  if(q.length && !left.length) toast("Sent "+q.length+" saved job(s)","good");
+}
+
+function reqOperator(){
+  if(!S.station || !S.operator){ toast("Set the press and operator — tap ⚙","bad");
+    openCfg(); return false; }
+  return true;
+}
+$("#p_submit").onclick = async ()=>{
+  if(!reqOperator()) return;
+  const colors=parseInt($("#p_colors").value||"0",10);
+  if(!$("#p_order").value.trim()){toast("Order # is required","bad");return;}
+  if(!colors){toast("Colors / screens is required","bad");return;}
+  [PT.setup,PT.run,PT.wait].forEach(t=>{if(t.running)tToggle(t);});
+  const setupMin=mins(tElapsed(PT.setup)), runMin=mins(tElapsed(PT.run)),
+        waitMin=mins(tElapsed(PT.wait));
+  const rate=colors?setupMin/colors:0;
+  const ok = await post({
+    source:"press",
+    order:$("#p_order").value.trim(), colors, pieces:$("#p_pieces").value.trim(),
+    garment:$("#p_garment").value.trim(),
+    setupMin:+setupMin.toFixed(2), runMin:+runMin.toFixed(2), waitMin:+waitMin.toFixed(2),
+    setupMinPerScreen:+rate.toFixed(2),
+    // runaway flags travel WITH the row — the report excludes, it never clips
+    setupRunaway: PT.setup.flagged || rate>K.SETUP_CEILING_MIN_PER_SCREEN,
+    runRunaway:   PT.run.flagged   || runMin>K.RUN_CEILING_MIN,
+    waitRunaway:  PT.wait.flagged  || waitMin>K.WAIT_CEILING_MIN,
+    activities:[...picked.act].join("; "),
+    delays:[...picked.delay].join("; "), delayOther:otherText.delay,
+    problems:[...picked.prob].join("; "), problemOther:otherText.prob,
+    notes:$("#p_notes").value.trim(),
+    // ---- the PORT join: same row as the setup minutes above ----
+    portGraphic:   PORTLINK ? PORTLINK.graphic : "",
+    portLocation:  PORTLINK ? PORTLINK.location : "",
+    portApproved:  PORTLINK ? (PORTLINK.approvedBy || "") : "",
+    portDecision:  PORTLINK ? (PORTLINK.decision || "") : "",
+    portChangeType:PORTLINK ? (PORTLINK.changeType || "") : "",
+    portReason:    PORTLINK ? PORTLINK.reason : "",
+    portPredicted: PORTLINK ? PORTLINK.predicted : "",
+    portRan:       PORTLINK ? PORTLINK.ran : "",
+    portFlashes:   PORTLINK ? PORTLINK.flashes : ""
+  });
+  touchActive(); if(DEMO) PRACTICE_SUBMITS++;
+  if(ok!==false) toast("Job submitted","good");
+  clearPress();
+};
+function clearPress(){
+  ["#p_order","#p_colors","#p_pieces","#p_garment","#p_notes"].forEach(s=>$(s).value="");
+  [PT.setup,PT.run,PT.wait].forEach(tReset);
+  picked.act.clear();picked.delay.clear();picked.prob.clear();
+  otherText.delay="";otherText.prob="";
+  PORTLINK=null;
+  buildChips("#c_act","act");buildChips("#c_delay","delay","warnc");
+  buildChips("#c_prob","prob","badc");
+  save(); paintTimers(); paintLink();
+}
+$("#p_clear").onclick=()=>{ if(confirm("Clear this job?")) clearPress(); };
+
+/* ==========================================================================
+   SCREEN ROOM — one row per screen-prep job, the way the log actually works:
+   the mesh belongs to the SCREEN, not to the job, so each screen carries its
+   own mesh and its own reshoot flag. The screen room runs several jobs at
+   once and finishes them at different times, so each job gets its own tab
+   with its own prep and finish clocks.
+   ========================================================================== */
+let dmode="job", DJOBS=[], djIdx=0;
+function newJob(){
+  return {id:"j"+Math.random().toString(36).slice(2,8), order:"",
+          screens:[{mesh:null,reshoot:false}],
+          prep:  mkTimer("prep","Prep",  ()=>K.PREP_CEILING_MIN),
+          finish:mkTimer("finish","Finish",()=>K.PREP_CEILING_MIN)};
+}
+function curJob(){
+  if(!DJOBS.length) DJOBS=[newJob()];
+  if(djIdx<0||djIdx>=DJOBS.length) djIdx=DJOBS.length-1;
+  return DJOBS[djIdx];
+}
+function syncJobTimers(){ const j=curJob(); DT.prep=j.prep; DT.finish=j.finish; }
+
+function paintJobTabs(){
+  const h=$("#d_tabs"); h.innerHTML="";
+  DJOBS.forEach((j,i)=>{
+    const b=el("button",i===djIdx?"on":null, j.order ? j.order : "Job "+(i+1));
+    b.onclick=()=>{djIdx=i;syncJobTimers();save();paintDark();paintTimers();};
+    h.appendChild(b);
+  });
+  const a=el("button","add","+");
+  a.onclick=()=>{DJOBS.push(newJob());djIdx=DJOBS.length-1;syncJobTimers();
+                 save();paintDark();paintTimers();};
+  h.appendChild(a);
+}
+function paintScreens(){
+  const j=curJob(), h=$("#d_screenlist"); h.innerHTML="";
+  $("#d_count").textContent = j.screens.length +
+    " screen"+(j.screens.length===1?"":"s")+
+    (j.screens.filter(s=>s.reshoot).length ? " · "+
+      j.screens.filter(s=>s.reshoot).length+" reshoot" : "");
+  j.screens.forEach((s,i)=>{
+    const d=el("div","scr"+(s.reshoot?" re":""));
+    const hd=el("div","hd");
+    const n=el("div","n"); n.innerHTML="Screen "+(i+1)+
+      (s.mesh?'<small>'+s.mesh+' mesh</small>':'<small>no mesh yet</small>');
+    hd.appendChild(n);
+    const re=el("button",s.reshoot?"on":null,"Reshoot");
+    re.onclick=()=>{s.reshoot=!s.reshoot;save();paintScreens();};
+    hd.appendChild(re);
+    const x=el("button","del","✕");
+    x.onclick=()=>{ if(j.screens.length===1) return;
+                    j.screens.splice(i,1);save();paintScreens(); };
+    hd.appendChild(x);
+    d.appendChild(hd);
+    const m=el("div","mesh");
+    CHIPS.mesh.forEach(v=>{
+      const b=el("button",s.mesh===v?"on":null,v);
+      b.onclick=()=>{s.mesh = (s.mesh===v? null : v); save(); paintScreens();};
+      m.appendChild(b);
+    });
+    d.appendChild(m);
+    h.appendChild(d);
+  });
+}
+function paintDark(){
+  $("#d_job").style.display = dmode==="job"?"":"none";
+  $("#d_shift").style.display = dmode==="shift"?"":"none";
+  $$("#v-dark .chip[data-mode]").forEach(b=>b.classList.toggle("on",b.dataset.mode===dmode));
+  if(dmode==="job"){ paintJobTabs(); paintScreens();
+                     $("#d_order").value = curJob().order || ""; }
+}
+$$("#v-dark .chip[data-mode]").forEach(b=>b.onclick=()=>{dmode=b.dataset.mode;save();paintDark();});
+$("#scr_add").onclick=()=>{curJob().screens.push({mesh:null,reshoot:false});
+                           save();paintScreens();};
+$("#d_order").addEventListener("input",()=>{curJob().order=$("#d_order").value;
+                                            save();paintJobTabs();});
+$("#d_submit").onclick = async ()=>{
+  if(!reqOperator()) return;
+  [DT.prep,DT.finish,DT.shift].forEach(t=>{if(t.running)tToggle(t);});
+  const p={
+    source:"darkroom", mode:dmode,
+    humidity:$("#d_hum").value.trim(),
+    problems:[...picked.dprob].join("; "), problemOther:otherText.dprob,
+    notes:$("#d_notes").value.trim()
+  };
+  if(dmode==="job"){
+    const j=curJob();
+    if(!j.order.trim()){toast("Order # is required","bad");return;}
+    if(j.screens.some(s=>!s.mesh)){toast("Every screen needs a mesh count","bad");return;}
+    Object.assign(p,{
+      order:j.order.trim(),
+      screens:j.screens.length,
+      // per-screen, IN SCREEN ORDER — "155, 155, 230" not a set of counts used
+      mesh:j.screens.map(s=>s.mesh).join(", "),
+      reshoots:j.screens.filter(s=>s.reshoot).length,
+      reshootScreens:j.screens.map((s,i)=>s.reshoot?(i+1):null)
+                              .filter(Boolean).join(", "),
+      prepMin:+mins(tElapsed(j.prep)).toFixed(2),
+      finishMin:+mins(tElapsed(j.finish)).toFixed(2),
+      prepRunaway: j.prep.flagged, finishRunaway: j.finish.flagged
+    });
+  } else {
+    Object.assign(p,{
+      coated:$("#s_coat").value.trim(), reclaimed:$("#s_reclaim").value.trim(),
+      stretched:$("#s_stretch").value.trim(), cleaned:$("#s_clean").value.trim(),
+      shiftMin:+mins(tElapsed(DT.shift)).toFixed(2), shiftRunaway: DT.shift.flagged
+    });
+  }
+  const ok=await post(p);
+  touchActive(); if(DEMO) PRACTICE_SUBMITS++;
+  if(ok!==false) toast("Submitted","good");
+  clearDark();
+};
+/* A submitted job closes its own tab — the screen room's other jobs are still
+   in flight and must keep their clocks. */
+function clearDark(){
+  if(dmode==="job"){
+    DJOBS.splice(djIdx,1);
+    if(!DJOBS.length) DJOBS=[newJob()];
+    djIdx=Math.min(djIdx,DJOBS.length-1);
+    syncJobTimers();
+  } else {
+    ["#s_coat","#s_reclaim","#s_stretch","#s_clean"].forEach(s=>$(s).value="");
+    tReset(DT.shift);
+  }
+  $("#d_notes").value="";
+  picked.dprob.clear(); otherText.dprob="";
+  buildChips("#c_dprob","dprob","badc");
+  save(); paintDark(); paintTimers();
+}
+$("#d_clear").onclick=()=>{
+  if(confirm(dmode==="job"?"Close this job without submitting?":"Clear this entry?"))
+    clearDark();
+};
+
+/* ==========================================================================
+   NUMBERS — two things only: the operator's own day, and this press vs target.
+   ========================================================================== */
+function kpi(host,val,label,delta,cls){
+  const d=el("div","kpi");
+  d.appendChild(el("div","v",val));
+  d.appendChild(el("div","l",label));
+  if(delta) d.appendChild(el("div","d "+(cls||""),delta));
+  host.appendChild(d);
+}
+async function loadKpis(){
+  const me=$("#k_me"), pr=$("#k_press");
+  me.innerHTML='<div class="kpi muted">…</div>'; pr.innerHTML="";
+  const url=S.sheetUrl||CFG.SHEET_URL;
+  if(!url){me.innerHTML='<div class="kpi muted">No Apps Script URL set — tap ⚙</div>';return;}
+  try{
+    const q=url+"?fn=kpi&operator="+encodeURIComponent(S.operator)+
+            "&station="+encodeURIComponent(S.station);
+    const r=await fetch(q,{cache:"no-store"});
+    const d=await r.json();
+    me.innerHTML="";
+    kpi(me, String(d.myJobs||0), "Jobs today");
+    kpi(me, String(d.myPieces||0), "Pieces today");
+    kpi(me, (d.myRate!=null? Number(d.myRate).toFixed(1):"—"), "Min / screen (setup)",
+        d.myRateVsAvg!=null ? (d.myRateVsAvg<=0?"▼ ":"▲ ")+Math.abs(d.myRateVsAvg).toFixed(1)+" vs your average" : "",
+        d.myRateVsAvg<=0?"up":"down");
+    kpi(me, (d.mySetupMin!=null? Math.round(d.mySetupMin)+"m":"—"), "Setup time today");
+
+    const t=K.SETUP_TARGET_MIN_PER_SCREEN;
+    const rate = d.pressRate!=null ? Number(d.pressRate) : null;
+    const box=el("div","kpi");
+    box.innerHTML =
+      '<div class="v">'+(rate!=null?rate.toFixed(1):"—")+
+      ' <span style="font-size:22px;color:var(--dim)">min/screen</span></div>'+
+      '<div class="l">'+esc(S.station||"This press")+' today · target '+t+'</div>'+
+      '<div class="bar"><i style="width:'+
+        (rate!=null? Math.max(4,Math.min(100, (t/Math.max(rate,0.1))*100)) : 0)+
+        '%;background:'+(rate!=null&&rate<=t?"var(--good)":"var(--warn)")+'"></i></div>'+
+      '<div class="d '+(rate!=null&&rate<=t?"up":"down")+'">'+
+        (rate!=null ? (rate<=t? "at or under target" : "+"+(rate-t).toFixed(1)+" over target") : "no jobs logged yet")+
+      '</div>';
+    pr.appendChild(box);
+    $("#k_note").textContent = "Runaway rows (setup over "+K.SETUP_CEILING_MIN_PER_SCREEN+
+      " min/screen) are excluded from these averages, not trimmed. "+
+      (d.excluded? d.excluded+" excluded today.":"");
+    setSync("ok");
+  }catch(e){
+    me.innerHTML='<div class="kpi muted">Can\'t reach the sheet.</div>'; setSync("err");
+  }
+}
+$("#k_refresh").onclick=loadKpis;
+
+/* ==========================================================================
+   DEMO INTRO — the difference between a demo someone drives and a link
+   someone opens cold. Says what the tablet is for, names the three jobs to
+   try and what each one shows, and promises nothing is saved anywhere.
+   ========================================================================== */
+/* ==========================================================================
+   HELP — the same five steps that are on the laminated card at the press, so
+   the paper and the screen can never disagree. Written per station kind: a
+   screen-room operator has no use for the press steps and the reverse. It
+   goes through the normal translation layer, so the Spanish costs nothing
+   extra to keep current.
+   ========================================================================== */
+const STEPS = {
+  /* Each line names the buttons as they appear on screen in that same
+     language. An English step that says "tap Enviar trabajo" is worse than
+     either language alone — the reader has to hold both at once.
+
+     The last step says WHEN, not just what. "Tap Submit job" leaves an
+     operator guessing whether that means now or at the end of the run, and a
+     job submitted halfway through carries half its pieces and half its time. */
+  press: [
+    ["Find the job", "Type the order number and tap GO."],
+    ["Read the print order", "Green bar means run it exactly as shown. Grey bar means art has not released it yet."],
+    ["While you set up", "Tap START on Setup. Tap STOP when the press is ready to run."],
+    ["While you print", "Tap START on Run. Tap STOP when the last piece is printed."],
+    ["Say what you ran", "Tap Ran it as shown, or Changed the order and fix the list."],
+    ["When the job is off the press", "Type the pieces, then tap Submit job. Once per job, at the end."]
+  ],
+  /* A manager station has no log to fill in, so its steps are about reading
+     the board rather than feeding it. */
+  manager: [
+    ["Read the four numbers on top", "Setup min/screen, jobs at target, delay share of hours, and this week's jobs."],
+    ["Check what is being logged", "The card near the bottom says how much of the week the averages stand on. Read that first — a 40% week is 40% of an answer."],
+    ["12 wk or All", "Every chart toggles between the last twelve weeks and everything logged."],
+    ["By operator and by press", "Read those two together. A press that runs high under everybody is the machine, not the crew."],
+    ["Scrub the delay chart", "Drag the slider or press play to watch the delay reasons climb and fall week to week."]
+  ],
+  screen: [
+    ["Start the job", "Type the order number."],
+    ["Add the screens", "One per screen, with its mesh. Mark any that are reshoots."],
+    ["While you make them", "Tap START on Prep. Tap STOP when they are done."],
+    ["Problems", "Tap anything that went wrong. Other takes a few words."],
+    ["When the screens go to the press", "Tap Submit. Once per job, at the end."]
+  ]
+};
+/* ==========================================================================
+   PRACTICE CHECKLIST
+   Looking a job up is the easy half. The half that decides whether the data
+   is worth anything is the press log — the timers started and stopped at the
+   right moments, the delay actually tapped, the pieces counted. So practice
+   watches for each of those and ticks them off, which gives the operator a
+   target and gives whoever is training them something to point at.
+
+   Each item is a predicate read off live state once a second, not a flag set
+   by a button, so it cannot be ticked by tapping something that looks right.
+   ========================================================================== */
+const PRACTICE_TASKS = {
+  press: [
+    ["Look up a job",            ()=> !!ROT],
+    ["Read the print order",     ()=> !!PORTLINK],
+    ["Say what you ran",         ()=> !!(PORTLINK && PORTLINK.decision)],
+    ["Run the Setup timer, then stop it", ()=> tElapsed(PT.setup)>0 && !PT.setup.running],
+    ["Run the Run timer, then stop it",   ()=> tElapsed(PT.run)>0   && !PT.run.running],
+    ["Tap an activity",          ()=> picked.act.size>0],
+    ["Tap a delay or a problem", ()=> picked.delay.size>0 || picked.prob.size>0],
+    ["Enter the pieces",         ()=> !!$("#p_pieces").value.trim()],
+    ["Submit the job",           ()=> PRACTICE_SUBMITS>0]
+  ],
+  screen: [
+    ["Enter an order number",    ()=> !!$("#d_order").value.trim()],
+    ["Add a second screen",      ()=> curJob().screens.length>1],
+    ["Give every screen a mesh", ()=> curJob().screens.every(s=>!!s.mesh)],
+    ["Mark one as a reshoot",    ()=> curJob().screens.some(s=>s.reshoot)],
+    ["Run the Prep timer, then stop it",   ()=> tElapsed(DT.prep)>0   && !DT.prep.running],
+    ["Run the Finish timer, then stop it", ()=> tElapsed(DT.finish)>0 && !DT.finish.running],
+    ["Tap a problem",            ()=> picked.dprob.size>0],
+    ["Submit",                   ()=> PRACTICE_SUBMITS>0]
+  ]
+};
+let PRACTICE_SUBMITS = 0, PRACTICE_CHEERED = false;
+/* Submitting clears the form, which would un-tick everything the operator had
+   just done. A checklist answers "have you done this", not "is this still on
+   screen", so once an item goes true it stays true. */
+const PRACTICE_DONE = new Set();
+/* A "both" tablet runs a press and a screen room, so it practises the press
+   list. Only a manager station has nothing to tick off. */
+function practiceTasks(){
+  return PRACTICE_TASKS[S.kind] || (S.kind==="manager" ? [] : PRACTICE_TASKS.press);
+}
+function practiceList(){
+  return practiceTasks()
+    .map(([label,fn])=>{
+      if(!PRACTICE_DONE.has(label)){
+        let d=false; try{ d=!!fn(); }catch(e){}
+        if(d) PRACTICE_DONE.add(label);
+      }
+      return {label, done:PRACTICE_DONE.has(label)};
+    });
+}
+/* What the operator is looking at, in one line, changing with the tab. In
+   practice this is the only narration they get, and it is the difference
+   between poking at a screen and knowing what the screen is for. */
+const PAGE_WHAT = {
+  rot:   "Print order — look up a job and read the order art released.",
+  press: "Press log — time the setup and the run, and record what the job cost.",
+  dark:  "Screen room — log the screens you made and how long they took.",
+  num:   "Numbers — your own day, and this press against the target.",
+  dash:  "Dashboard — how the floor is trending."
+};
+function paintPageWhat(){
+  if(!DEMO) return;
+  const n=$("#pb_what"); if(!n) return;
+  const cur=$$("#tabs button").find(b=>b.classList.contains("on"));
+  n.textContent = (cur && PAGE_WHAT[cur.dataset.v]) || "";
+}
+
+function paintPracticeChip(){
+  if(!DEMO) return;
+  const bar=$("#checklistbar"), n=$("#cb_count"); if(!bar||!n) return;
+  const list=practiceList(); if(!list.length) return;
+  const done=list.filter(t=>t.done).length;
+  n.textContent = done + " / " + list.length;
+  const all = done===list.length;
+  bar.classList.toggle("all", all);
+  if(all && !PRACTICE_CHEERED){ PRACTICE_CHEERED=true; toast("All done — that is the whole job","good"); }
+}
+function practiceSheet(){
+  const list=practiceList(), done=list.filter(t=>t.done).length;
+  modal(`<button class="mx" id="pt_x" aria-label="close">&times;</button>
+    <h3>Practice checklist</h3>
+    <p class="muted" style="margin:-6px 0 16px">Do these on a sample job. ${done} of ${list.length} so far.</p>
+    <ul class="tasks">${list.map(t=>
+      `<li class="${t.done?"done":""}"><span class="bx">${t.done?"✓":""}</span><span class="lb">${t.label}</span></li>`
+      ).join("")}</ul>`);
+  $("#pt_x").onclick=closeModal;
+}
+
+function enterPractice(){
+  /* Start from a clean bench. Otherwise the next person practises on top of
+     the last person's half-finished job and spends the first minute working
+     out whose order number that is. */
+  try{
+    Object.keys(localStorage).filter(k=>k.indexOf("practice_")===0)
+      .forEach(k=>localStorage.removeItem(k));
+  }catch(e){}
+  location.search = "?demo=1";
+}
+function leavePractice(){ location.search = ""; }
+/* Clearing the query leaves a bare "?" on the address. Harmless, but it ends
+   up in whatever the operator adds to their home screen, so tidy it. */
+function tidyUrl(){
+  if(location.href.slice(-1)==="?"){
+    try{ history.replaceState(null,"",location.href.slice(0,-1)); }catch(e){}
+  }
+}
+
+function helpCard(){
+  const kind = STEPS[S.kind] ? S.kind : "press";
+  const steps = STEPS[kind].map(([t,d])=>`<li><b>${t}</b><span>${d}</span></li>`).join("");
+  const demoJobs = `
+    <h3 style="font-size:19px;margin:22px 0 10px">Try these three</h3>
+    <div class="chips" style="flex-direction:column;align-items:stretch;gap:10px">
+      <button class="chip" data-demo="533000" style="text-align:left"><b>533000</b> — released by art</button>
+      <button class="chip" data-demo="754205" style="text-align:left"><b>754205</b> — two print locations</button>
+      <button class="chip" data-demo="392841" style="text-align:left"><b>392841</b> — art changed the order</button>
+    </div>`;
+  /* This panel only ever opens inside practice now. The bar button goes
+     straight in — a button that says "practice mode" and then asks you to
+     press a second button that also says "practice mode" is a step that
+     exists only because it was easy to build. */
+  modal(`<button class="mx" id="hc_x" aria-label="close">&times;</button>
+    <h3>How to use this</h3>
+    <ol class="steps">${steps}</ol>
+    ${demoJobs}
+    <button class="btn primary lg" id="hc_ok" style="margin-top:14px">Start</button>
+    <button class="btn ghost" id="hc_exit" style="margin-top:12px">Leave practice</button>
+    <p class="tiny" style="margin-top:16px;text-align:center;opacity:.7">${esc(APP_VERSION)}</p>`);
+
+  $$("#modalBox .chip[data-demo]").forEach(b=>b.onclick=()=>{
+    const g=b.dataset.demo; closeModal(); LS.set("pp_demo_seen","1");
+    $("#lookup").classList.remove("mini"); $("#jobno").value=g; predict(g);
+  });
+  const done=()=>{ closeModal(); if(DEMO) LS.set("pp_demo_seen","1"); };
+  $("#hc_x").onclick=done;
+  const ok=$("#hc_ok"); if(ok) ok.onclick=done;
+  /* Practice is this same page with ?demo=1. Everything it writes is
+     namespaced away from the live state, so a press mid-job is undisturbed. */
+  /* Set the query string and let the browser resolve it against the document
+     we are already on. Rebuilding the URL from location.pathname produced a
+     404 on GitHub Pages — and a 404 has no app on it, so there was no way
+     back. */
+  const ex=$("#hc_exit"); if(ex) ex.onclick=leavePractice;
+}
+
+/* ==========================================================================
+   MANAGER DASHBOARD
+   --------------------------------------------------------------------------
+   Same file, same setup link, different kind. A tablet set up with
+   &kind=manager opens on this and never shows a press log; a press tablet
+   never shows this. One upload, one URL, two jobs.
+
+   Every number here is read back from fn=dash, which rolls the PRESS and
+   DARKROOM tabs up by week before it answers. Nothing is computed from raw
+   rows on the tablet — a season of press logs is not something an 11" screen
+   on shop wifi should be downloading to work out an average.
+
+   Runaway rows are excluded from every average, never clipped, and the count
+   is printed at the bottom. Same rule as the operator's NUMBERS screen and
+   the weekly report, so three places can never disagree.
+   ========================================================================== */
+let DASH = null;          // the whole fn=dash answer
+let DRANGE = {};          // per-card: 12 weeks or the full record
+let DOP = "__all";        // operator picker on the by-operator chart
+let RACE_I = null, RACE_T = null;   // delay-race scrub position + play timer
+
+const fmt  = (n,d)=> n==null ? "—" : Number(n).toFixed(d==null?1:d);
+const thou = n => String(Math.round(n||0)).replace(/\B(?=(\d{3})+(?!\d))/g,",");
+const mdy  = w => { const p=String(w).split("-"); return p.length===3 ? (+p[1])+"/"+(+p[2]) : w; };
+const rng  = id => DRANGE[id]==="all" ? 1e9 : 12;
+const tail = (a,id) => a.slice(Math.max(0, a.length - rng(id)));
+/* 4-week rolling average — the line people should read. A single week on a
+   shop floor is weather; four weeks is climate. */
+function avg4(vals,i){
+  let s=0,n=0;
+  for(let k=Math.max(0,i-3);k<=i;k++) if(vals[k]!=null){s+=vals[k];n++;}
+  return n? s/n : null;
+}
+
+/* --------------------------------------------------------------- charting
+   Hand-drawn SVG. No chart library: this file is uploaded to GitHub Pages as
+   one document and has to work on a tablet with no outside connection beyond
+   the Apps Script URL. */
+const CW=600, CH=210, GL=48, GR=10, GT=12, GB=26;
+function scale(vals, pad){
+  const ok = vals.filter(v=>v!=null);
+  if(!ok.length) return {lo:0, hi:1};
+  let lo=Math.min(...ok), hi=Math.max(...ok);
+  if(hi===lo){ hi=lo+1; lo=Math.max(0,lo-1); }
+  const m=(hi-lo)*(pad==null?.15:pad);
+  return {lo:Math.max(0,lo-m), hi:hi+m};
+}
+function lineChart(o){
+  // o: {labels, series:[{vals,color,width,dash,faint}], target, targetLabel, pct}
+  const n=o.labels.length;
+  if(!n) return '<p class="cnote">Nothing logged yet.</p>';
+  const all=[];
+  o.series.forEach(s=>all.push(...s.vals));
+  if(o.target!=null) all.push(o.target);
+  const {lo,hi}=scale(all, o.pad);
+  const X=i=> GL + (n===1 ? (CW-GL-GR)/2 : i*(CW-GL-GR)/(n-1));
+  const Y=v=> GT + (CH-GT-GB) * (1 - (v-lo)/(hi-lo));
+  const path=vals=>{
+    let d="", pen=false;
+    vals.forEach((v,i)=>{ if(v==null){pen=false;return;}
+      d += (pen?" L":" M")+X(i).toFixed(1)+" "+Y(v).toFixed(1); pen=true; });
+    return d.trim();
+  };
+  let g=`<svg viewBox="0 0 ${CW} ${CH}" role="img">`;
+  // horizontal guides
+  for(let k=0;k<=4;k++){
+    const v=lo+(hi-lo)*k/4, y=Y(v);
+    g+=`<line x1="${GL}" y1="${y.toFixed(1)}" x2="${CW-GR}" y2="${y.toFixed(1)}" stroke="#223044" stroke-width="1"/>`;
+    g+=`<text x="${GL-8}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="11" fill="#5d6b7d">${fmt(v,o.pct?0:1)}${o.pct?"%":""}</text>`;
+  }
+  if(o.target!=null){
+    const y=Y(o.target);
+    g+=`<line x1="${GL}" y1="${y.toFixed(1)}" x2="${CW-GR}" y2="${y.toFixed(1)}" stroke="#93a1b3" stroke-width="1.5" stroke-dasharray="6 5"/>`;
+    g+=`<text x="${GL+4}" y="${(y-6).toFixed(1)}" text-anchor="start" font-size="11" fill="#93a1b3">${esc(o.targetLabel||("target "+o.target))}</text>`;
+  }
+  o.series.forEach(s=>{
+    const d=path(s.vals); if(!d) return;
+    g+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.width||1.4}"`+
+       (s.dash?` stroke-dasharray="${s.dash}"`:"")+
+       ` stroke-opacity="${s.faint?0.38:1}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  });
+  // last point on the first bold series, called out
+  const bold=o.series.find(s=>!s.faint);
+  if(bold){
+    for(let i=bold.vals.length-1;i>=0;i--){
+      if(bold.vals[i]==null) continue;
+      g+=`<circle cx="${X(i).toFixed(1)}" cy="${Y(bold.vals[i]).toFixed(1)}" r="4" fill="${bold.color}"/>`;
+      g+=`<text x="${(X(i)-7).toFixed(1)}" y="${(Y(bold.vals[i])-9).toFixed(1)}" text-anchor="end" font-size="13" font-weight="700" fill="#e9eef5">${fmt(bold.vals[i],o.pct?0:1)}${o.pct?"%":""}</text>`;
+      break;
+    }
+  }
+  const every=Math.max(1,Math.ceil(n/7));
+  o.labels.forEach((L,i)=>{ if(i%every) return;
+    g+=`<text x="${X(i).toFixed(1)}" y="${CH-7}" text-anchor="middle" font-size="11" fill="#5d6b7d">${esc(mdy(L))}</text>`; });
+  return g+"</svg>";
+}
+function barChart(o){
+  // o: {labels, vals, color, note:(i)=>string|null, thousands}
+  const n=o.labels.length;
+  if(!n) return '<p class="cnote">Nothing logged yet.</p>';
+  const {hi}=scale(o.vals.concat([0]), .08), base=0;
+  const step=Math.pow(10,Math.floor(Math.log10(hi||1)))/2;
+  const top=Math.max(step, Math.ceil(hi/step)*step);
+  const W=CW-GL-GR, bw=Math.max(5, W/n*0.62), gap=W/n;
+  const Y=v=> GT + (CH-GT-GB) * (1 - (v-base)/(top-base||1));
+  let g=`<svg viewBox="0 0 ${CW} ${CH}" role="img">`;
+  for(let k=0;k<=3;k++){
+    const v=base+(top-base)*k/3, y=Y(v);
+    g+=`<line x1="${GL}" y1="${y.toFixed(1)}" x2="${CW-GR}" y2="${y.toFixed(1)}" stroke="#223044" stroke-width="1"/>`;
+    g+=`<text x="${GL-8}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="11" fill="#5d6b7d">${o.thousands?thou(v):fmt(v,0)}</text>`;
+  }
+  o.vals.forEach((v,i)=>{
+    if(v==null) return;
+    const x=GL+gap*i+(gap-bw)/2, y=Y(v), h=Math.max(1, Y(base)-y);
+    const last=i===o.vals.length-1;
+    g+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${o.color}" fill-opacity="${last?1:.62}"/>`;
+    const nt=o.note?o.note(i):null;
+    if(nt) g+=`<text x="${(x+bw/2).toFixed(1)}" y="${(y-5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#e3a008">${esc(nt)}</text>`;
+    else if(last) g+=`<text x="${(x+bw/2).toFixed(1)}" y="${(y-6).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="700" fill="#e9eef5">${o.thousands?thou(v):fmt(v,0)}</text>`;
+  });
+  const every=Math.max(1,Math.ceil(n/7));
+  o.labels.forEach((L,i)=>{ if(i%every) return;
+    g+=`<text x="${(GL+gap*i+gap/2).toFixed(1)}" y="${CH-7}" text-anchor="middle" font-size="11" fill="#5d6b7d">${esc(mdy(L))}</text>`; });
+  return g+"</svg>";
+}
+
+/* ----------------------------------------------------------------- loading */
+async function loadDash(force){
+  const host=$("#dashBody");
+  const url=S.sheetUrl||CFG.SHEET_URL;
+  if(!url){ host.innerHTML='<div class="ccard"><p class="csub">No Apps Script URL set — tap ⚙</p></div>'; return; }
+  if(!DASH) host.innerHTML='<div class="ccard"><p class="csub">Reading the floor logs…</p></div>';
+  setSync("busy");
+  try{
+    const r=await fetch(url+"?fn=dash"+(force?"&force=1":""),{cache:"no-store"});
+    const d=await r.json();
+    if(!d.ok) throw new Error(d.message||"no data");
+    DASH=d; setSync("ok"); paintDash();
+  }catch(e){
+    setSync("err");
+    if(!DASH) host.innerHTML='<div class="ccard"><p class="csub">Can\'t reach the sheet.</p></div>';
+    else toast("Can't reach the sheet.","bad");
+  }
+}
+
+/* ------------------------------------------------------------------ paint */
+function card(id, title, sub, body, extra, wide){
+  const on=v=>(DRANGE[id]===v||(v==="12"&&!DRANGE[id]))?"on":"";
+  return `<div class="ccard${wide?" wide":""}">
+    <div class="ch"><h4>${title}</h4>${extra||""}
+      <div class="seg" data-seg="${id}">
+        <button data-r="12" class="${on("12")}">12 wk</button><button data-r="all" class="${on("all")}">All</button>
+      </div></div>
+    <p class="csub">${sub}</p>
+    <div class="chart">${body}</div></div>`;
+}
+function delta(series, better){
+  // first week on record vs latest — the "since 3/9" line on each KPI
+  const ok=series.map((v,i)=>({v,i})).filter(x=>x.v!=null);
+  if(ok.length<2) return "";
+  const a=ok[0], b=ok[ok.length-1], d=b.v-a.v;
+  if(Math.abs(d)<0.05) return ` · — since ${mdy(DASH.weeks[a.i].w)}`;
+  const good = better==="down" ? d<0 : d>0;
+  return ` · <span class="${good?"up":"down"}">${d<0?"▼":"▲"} ${fmt(Math.abs(d),1)}</span> since ${mdy(DASH.weeks[a.i].w)}`;
+}
+function paintDash(){
+  if(!DASH) return;
+  const host=$("#dashBody"), W=DASH.weeks||[], T=DASH.target;
+  if(!W.length){ host.innerHTML='<div class="ccard"><p class="csub">No press logs yet. This fills in as the floor submits jobs.</p></div>'; return; }
+  const last=W[W.length-1];
+  $("#dashWhen").innerHTML = "Updated <b>"+esc(DASH.updated||"—")+"</b> &nbsp;·&nbsp; Data through <b>"+esc(DASH.through||"—")+"</b>";
+
+  /* ---- the four numbers a manager reads first ---- */
+  const rates=W.map(w=>w.setupRate), targets=W.map(w=>w.atTarget), dels=W.map(w=>w.delayPct);
+  $("#dashKpis").innerHTML =
+    `<div class="kcard"><div class="kl">Setup min/screen</div>
+       <div class="kv">${fmt(last.setupRate)}</div>
+       <div class="kf">target ${T}${delta(rates,"down")}</div></div>
+     <div class="kcard g"><div class="kl">Jobs at target</div>
+       <div class="kv">${fmt(last.atTarget,0)}%</div>
+       <div class="kf">≤ ${T} min/screen${delta(targets,"up")}</div></div>
+     <div class="kcard w"><div class="kl">Delay % of hours</div>
+       <div class="kv">${fmt(last.delayPct)}%</div>
+       <div class="kf">lower is better${delta(dels,"down")}</div></div>
+     <div class="kcard n"><div class="kl">Jobs this week</div>
+       <div class="kv">${thou(last.jobs)}</div>
+       <div class="kf">${thou(last.pieces)} pieces printed</div></div>`;
+
+  /* ---- the charts ---- */
+  const L=id=>tail(W,id).map(w=>w.w);
+  const V=(id,k)=>tail(W,id).map(w=>w[k]);
+  const avgOf=a=>a.map((_,i)=>avg4(a,i));
+  let html="";
+
+  html += card("setup","Setup time per screen",
+    `Minutes to set up one screen. Lower is better. Dashed line is the target of ${T}. Bold line is the 4-week average; the faint line is each week exactly.`,
+    lineChart({labels:L("setup"), target:T, targetLabel:"target "+T, series:[
+      {vals:V("setup","setupRate"), color:"#4c9aff", width:1.2, faint:true},
+      {vals:avgOf(V("setup","setupRate")), color:"#4c9aff", width:2.6}
+    ]}));
+
+  html += card("attarget","Jobs hitting the target",
+    `Share of jobs set up in ${T} min/screen or less. Higher is better. Bold line is the 4-week average.`,
+    lineChart({labels:L("attarget"), pct:true, series:[
+      {vals:V("attarget","atTarget"), color:"#3fb950", width:1.2, faint:true},
+      {vals:avgOf(V("attarget","atTarget")), color:"#3fb950", width:2.6}
+    ]}));
+
+  html += card("delay","Delay — share of logged hours",
+    "Time lost to waiting, as a percent of hours worked. Lower is better. Bold line is the 4-week average.",
+    lineChart({labels:L("delay"), pct:true, series:[
+      {vals:V("delay","delayPct"), color:"#e3a008", width:1.2, faint:true},
+      {vals:avgOf(V("delay","delayPct")), color:"#e3a008", width:2.6}
+    ]}));
+
+  /* By operator, and by press. A shop with four presses has a second question
+     Mirror Image never had to ask: is this the operator or the machine? */
+  const ops=Object.keys(DASH.byOperator||{}).sort();
+  const sts=Object.keys(DASH.byStation||{}).sort();
+  const pills = ops.map(o=>`<button class="chip${DOP===o?" on":""}" data-op="${esc(o)}">${esc(o)}</button>`).join("")
+    + `<button class="chip${DOP==="__all"?" on":""}" data-op="__all">All</button>`;
+  const opSeries = (DOP==="__all" ? ops : [DOP]).map((o,i)=>{
+    const s=tail(DASH.byOperator[o]||[], "byop").map(x=>x.rate);
+    const c=["#4c9aff","#3fb950","#e3a008","#8b5cf6","#f4564a","#2dd4bf"][i%6];
+    return DOP==="__all" ? {vals:s,color:c,width:1.6}
+                         : [{vals:s,color:c,width:1.2,faint:true},{vals:avgOf(s),color:c,width:2.6}];
+  });
+  html += card("byop","Setup per screen, by operator",
+    `Min/screen each week. Dashed line is the ${T} target. Pick one operator to show their own progress against their own 4-week average.`,
+    lineChart({labels:tail(W,"byop").map(w=>w.w), target:T, targetLabel:"target "+T,
+      series:[].concat(...opSeries.map(x=>Array.isArray(x)?x:[x]))}),
+    `<div class="chips" id="dashOps" style="flex:0 0 auto;gap:6px">${pills}</div>`);
+
+  const pressSvg = lineChart({labels:tail(W,"bypress").map(w=>w.w), target:T, targetLabel:"target "+T,
+      series:sts.map((s,i)=>({vals:tail(DASH.byStation[s]||[],"bypress").map(x=>x.rate),
+        color:["#4c9aff","#3fb950","#e3a008","#8b5cf6","#f4564a","#2dd4bf"][i%6], width:1.8}))});
+  html += card("bypress","Setup per screen, by press",
+    "The same minutes, grouped by the press instead of the person. Read the two together: a press that runs high under everyone is the machine, not the crew.",
+    pressSvg,
+    "");
+  if(sts.length) html=html.replace('<div class="chart">'+pressSvg,
+    `<p class="cnote" style="margin:-6px 0 10px">${sts.map((s,i)=>
+      `<span style="color:${["#4c9aff","#3fb950","#e3a008","#8b5cf6","#f4564a","#2dd4bf"][i%6]}">●</span> ${esc(s)}`
+      ).join(" &nbsp; ")}</p><div class="chart">`+pressSvg);
+
+  /* The one chart Mirror Image cannot have: PORT is PrintPro's. */
+  const agree = W.map(w => (w.portRan + w.portChanged)
+    ? 100 * w.portRan / (w.portRan + w.portChanged) : null);
+  const agreeT = tail(agree, "port");
+  const answered = last.portRan + last.portChanged;
+  html += card("port","Print order — ran it vs changed it",
+    "Share of jobs the floor ran exactly as the art room released it. This is the rotation tool grading itself: a falling line is the tool getting it wrong, not the floor getting it wrong.",
+    lineChart({labels:L("port"), pct:true, series:[
+      {vals:agreeT, color:"#8b5cf6", width:1.2, faint:true},
+      {vals:avgOf(agreeT), color:"#8b5cf6", width:2.6}
+    ]}));
+
+  html += card("pieces","Pieces printed",
+    "Total pieces off the presses each week — overall throughput.",
+    barChart({labels:L("pieces"), vals:V("pieces","pieces"), color:"#4c9aff", thousands:true}), "", true);
+
+  html += card("screens","Screen room output",
+    "Screens made each week, with reshoots flagged. Throughput, not timing.",
+    barChart({labels:L("screens"), vals:V("screens","screens"), color:"#4c9aff",
+      note:i=>{const r=tail(W,"screens")[i].reshoots; return r?r+"r":null;}}));
+
+  const cov=last.coverage;
+  html += `<div class="ccard"><div class="ch"><h4>Screen room coverage</h4></div>
+    <p class="csub">Share of press jobs with a matching screen-room entry.</p>
+    <div class="bigpct">${cov==null?"—":fmt(cov,0)+"%"}</div>
+    <p class="cnote">Both logs key the order number, so this match is real — it is the share of jobs the screen room logged at all, not a numbering mismatch. A low week means screens went out unlogged, and the prep minutes behind those jobs are missing from every average above.</p></div>`;
+
+  /* The honest companion to every average above. A manager asking "can I
+     trust this yet?" should not have to work it out from the footnote. */
+  const lg=(label,n,tot)=>{
+    const pct = tot ? 100*n/tot : 0;
+    const c = pct>=80 ? "var(--good)" : pct>=50 ? "var(--warn)" : "var(--bad)";
+    return `<div class="logrow"><div>${label}</div>
+      <div class="lb"><i style="width:${pct.toFixed(0)}%;background:${c}"></i></div>
+      <div class="lv">${n}/${tot} &nbsp;${fmt(pct,0)}%</div></div>`;
+  };
+  html += `<div class="ccard"><div class="ch"><h4>What's actually being logged</h4></div>
+    <p class="csub">Every average above stands on the share of jobs that fed it. Latest week.</p>
+    ${lg("Setup timer run", last.timed||0, last.jobs||0)}
+    ${lg("Pieces counted", last.counted||0, last.jobs||0)}
+    ${lg("Print order answered", last.answered||0, last.jobs||0)}
+    <p class="cnote">A job submitted without the setup clock ever started comes
+    through as zero minutes, which would divide to 0 min/screen and count as a
+    job that hit the target. Those are excluded from the setup rate and the
+    at-target share instead — ${thou(DASH.untimed||0)} on the whole record. They
+    still count as jobs and their pieces still count.</p></div>`;
+
+  host.innerHTML = `<div class="dgrid">${html}</div>` + raceCard() + `
+    <p class="dashfoot">Runaway rows (setup over ${DASH.ceiling} min/screen, waits past a shift)
+    are excluded from every average, never trimmed to the ceiling — ${thou(DASH.excluded)} excluded
+    on the whole record, plus ${thou(DASH.untimed||0)} submitted without the setup clock started.
+    Setup target is ${T} min/screen. Every chart here pools all presses together except
+    the two that say "by operator" and "by press". Each chart's toggle switches
+    between the last 12 weeks and everything logged. The print-order chart counts only
+    jobs where the operator answered on the ROTATION tab; ${thou(answered)} answered last week.</p>`;
+
+  wireDash();
+}
+
+/* ------------------------------------------------- delay race (the scrubber) */
+function raceCard(){
+  const keys=(DASH.weeks||[]).map(w=>w.w);
+  if(RACE_I==null || RACE_I>=keys.length) RACE_I=keys.length-1;
+  const wk=keys[RACE_I], rows=(DASH.delays||{})[wk]||[];
+  const top=rows.length?rows[0]:null;
+  const prev=RACE_I>0 ? ((DASH.delays||{})[keys[RACE_I-1]]||[]) : [];
+  const rank=(list,n)=>{const i=list.findIndex(x=>x.name===n); return i<0?null:i;};
+  const max=rows.reduce((m,r)=>Math.max(m,r.jobs),0)||1;
+  const pct=(DASH.weeks[RACE_I]||{}).delayPct;
+
+  const body = rows.length ? rows.map((r,i)=>{
+    const was=rank(prev,r.name);
+    let d='<span class="rd n">NEW</span>';
+    if(was!=null){
+      const mv=was-i;
+      d = mv>0 ? `<span class="rd u">▲${mv}</span>`
+        : mv<0 ? `<span class="rd d">▼${-mv}</span>`
+               : '<span class="rd">–</span>';
+    }
+    return `<div class="rrow"><div class="rk">${i+1}</div><div class="rn">${esc(r.name)}</div>
+      <div class="rb"><i style="width:${(100*r.jobs/max).toFixed(1)}%"></i></div>
+      <div class="rc">${r.jobs}</div>${d}</div>`;
+  }).join("") : '<p class="cnote">No delays logged that week.</p>';
+
+  return `<div class="ccard wide" style="margin-top:16px">
+    <div class="ch"><h4>Delay chart — biggest time-losers</h4></div>
+    <p class="csub">Delay reasons ranked by how many jobs hit them that week.
+      Scrub or press play to watch them climb and fall week to week.
+      A write-in under "Other" is listed by what the operator actually typed.</p>
+    <div class="scrub">
+      <button id="rz_b">‹</button>
+      <span class="wk">${esc(mdy(wk))}</span>
+      <span class="pc">${pct==null?"":fmt(pct)+"% delay"}</span>
+      <button id="rz_f">›</button>
+      <input type="range" id="rz_s" min="0" max="${Math.max(0,keys.length-1)}" value="${RACE_I}">
+      <button id="rz_p">${RACE_T?"❚❚ Pause":"▶ Play"}</button>
+    </div>
+    <div class="race">${body}</div>
+    ${top?`<div class="topdelay"><div class="tl">CURRENT #1 DELAY</div>
+      <div class="tn">${esc(top.name)}</div>
+      <div class="tm">${top.jobs} job${top.jobs===1?"":"s"} · week of ${esc(mdy(wk))}</div></div>`:""}
+  </div>`;
+}
+function wireDash(){
+  $$("#dashBody .seg button").forEach(b=>b.onclick=()=>{
+    DRANGE[b.parentNode.dataset.seg]=b.dataset.r; paintDash(); });
+  $$("#dashOps .chip").forEach(b=>b.onclick=()=>{ DOP=b.dataset.op; paintDash(); });
+  const go=i=>{ const n=(DASH.weeks||[]).length;
+                RACE_I=Math.max(0,Math.min(n-1,i)); paintDash(); };
+  const s=$("#rz_s"); if(s) s.oninput=()=>go(Number(s.value));
+  const bk=$("#rz_b"); if(bk) bk.onclick=()=>go(RACE_I-1);
+  const fw=$("#rz_f"); if(fw) fw.onclick=()=>go(RACE_I+1);
+  const pl=$("#rz_p"); if(pl) pl.onclick=()=>{
+    if(RACE_T){ clearInterval(RACE_T); RACE_T=null; paintDash(); return; }
+    RACE_I=0;
+    RACE_T=setInterval(()=>{
+      const n=(DASH.weeks||[]).length;
+      if(RACE_I>=n-1){ clearInterval(RACE_T); RACE_T=null; paintDash(); return; }
+      RACE_I++; paintDash();
+    }, 700);
+    paintDash();
+  };
+}
+$("#dash_refresh").onclick=()=>loadDash(true);
+
+/* ========================= boot ========================= */
+function tick(){
+  const d=new Date();
+  $("#clock").textContent=pad(d.getHours())+":"+pad(d.getMinutes());
+  paintTimers();
+  checkin();
+  paintPracticeChip();
+}
+function boot(){
+  restore();
+  const fromLink = applySetupHash();   // before anything reads S
+  tidyUrl();
+  seedStations();
+  document.documentElement.lang = LANG;
+  if(LANG==="es") i18nStart();         // before the first paint, not after it
+  syncJobTimers();
+  paintBar(); applyKind(); paintRecent(); paintDark(); paintLink();
+  buildChips("#c_act","act");
+  buildChips("#c_delay","delay","warnc");
+  buildChips("#c_prob","prob","badc");
+  buildChips("#c_dprob","dprob","badc");
+  paintTimers();
+  $("#cfgbtn").onclick=openCfg;
+  /* Outside practice this button is the way in. Inside it, it is the way
+     back to the steps — the way out is the Salir button on the banner. */
+  $("#helpbtn").onclick = DEMO ? helpCard : enterPractice;
+  if(DEMO) $("#helpbtn").textContent = "How to use this";
+  $("#relook").onclick=()=>{$("#lookup").classList.remove("mini");
+                            $("#jobno").value="";$("#rotOut").innerHTML="";ROT=null;ORDERED=null;};
+  $("#p_colors").addEventListener("input",()=>{paintRate();save();});
+  $$("input,textarea").forEach(n=>n.addEventListener("input",save));
+  setInterval(tick,1000);
+  setInterval(save,K.AUTOSAVE_MS);
+  // a setInterval does not fire while the tablet sleeps — repaint on wake
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden){tick();flushQueue();} });
+  window.addEventListener("online",flushQueue);
+  flushQueue();
+  if(DEMO){
+    /* Practice mirrors the tablet it was launched from — same station kind,
+       same language — so an operator is rehearsing their own screen, not a
+       generic one. Everything it writes is namespaced away from the live
+       state, so a press mid-job is never disturbed. */
+    if(!S.station) S.station = LS_SHARED && localStorage.getItem("pp_station") || "Press 3";
+    if(!S.operator) S.operator = localStorage.getItem("pp_operator") || "Operator";
+    applyKind();
+    S.sheetUrl = S.sheetUrl || "https://script.google.com/demo/exec";
+    if(!recent.length){ recent=["533000","754205","392841"]; paintRecent(); }
+    paintBar();
+    $("#practicebar").hidden = false;
+    $("#pb_exit").onclick = leavePractice;
+    /* Nothing is logged at a manager station, so there is nothing to tick
+       off. An empty orange bar reading 0 / 0 is worse than no bar. */
+    if(practiceList().length){
+      $("#checklistbar").hidden = false;
+      $("#checklistbar").onclick = practiceSheet;
+    }
+    paintPracticeChip(); paintPageWhat();
+    $("#opName").onclick=()=>startShift(false);
+    if(S.kind==="manager") $('#tabs button[data-v="dash"]').click();
+    helpCard();
+    return;
+  }
+  if(fromLink) toast("Tablet set up — "+(S.station||"press"),"good");
+  // a configured tablet only ever asks for the name; ⚙ stays for setup
+  $("#opName").onclick=()=>startShift(false);
+  if(!S.sheetUrl) openCfg();
+  /* ROTATION carries class="on" in the markup and a manager tablet is allowed
+     to use it, so applyKind() never switches away from it. Say it outright.
+     Nothing is filed against a manager, so no name is ever asked for. */
+  else if(S.kind==="manager") $('#tabs button[data-v="dash"]').click();
+  else if(!S.operator || !S.station || shiftLapsed()) startShift(true);
+  else touchActive();
+}
+boot();
+</script>
+</body>
+</html>
